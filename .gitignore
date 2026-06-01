@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+baileys-server/node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env.local
+.env
+baileys-server/.env
+
+# Baileys sessions (contain auth credentials — never commit)
+baileys-server/sessions/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+.superpowers/
+*.log
