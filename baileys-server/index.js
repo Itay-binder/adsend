@@ -77,29 +77,46 @@ async function handleIncoming(userId, sock, msg) {
   let mediaBuffer = null
   let mediaType = null
 
-  if (msgType === 'conversation' || msgType === 'extendedTextMessage') {
-    text = msg.message?.conversation ?? msg.message?.extendedTextMessage?.text ?? ''
-  } else if (msgType === 'imageMessage') {
-    const { downloadMediaMessage } = await import('@whiskeysockets/baileys')
-    const buffer = await downloadMediaMessage(msg, 'buffer', {})
-    mediaBuffer = buffer.toString('base64')
-    mediaType = 'image'
-    text = msg.message?.imageMessage?.caption ?? ''
-  } else if (msgType === 'videoMessage') {
-    const { downloadMediaMessage } = await import('@whiskeysockets/baileys')
-    const buffer = await downloadMediaMessage(msg, 'buffer', {})
-    mediaBuffer = buffer.toString('base64')
-    mediaType = 'video'
-    text = msg.message?.videoMessage?.caption ?? ''
-  } else {
-    return // ignore stickers, documents, etc.
+  try {
+    if (msgType === 'conversation' || msgType === 'extendedTextMessage') {
+      text = msg.message?.conversation ?? msg.message?.extendedTextMessage?.text ?? ''
+    } else if (msgType === 'imageMessage' || msgType === 'videoMessage') {
+      const { downloadMediaMessage } = await import('@whiskeysockets/baileys')
+      console.log(`[${userId}] downloading ${msgType}...`)
+      const buffer = await downloadMediaMessage(
+        msg, 'buffer', {},
+        { logger, reuploadRequest: sock.updateMediaMessage }
+      )
+      mediaBuffer = buffer.toString('base64')
+      mediaType = msgType === 'imageMessage' ? 'image' : 'video'
+      text = (msgType === 'imageMessage'
+        ? msg.message?.imageMessage?.caption
+        : msg.message?.videoMessage?.caption) ?? ''
+      console.log(`[${userId}] ${mediaType} downloaded, size=${buffer.byteLength}B`)
+    } else {
+      return
+    }
+  } catch (err) {
+    console.error(`[${userId}] handleIncoming error:`, err.message)
+    // Try to notify user about the error
+    try {
+      const s = sessions.get(userId)
+      if (s?.socket && s.status === 'connected') {
+        await s.socket.sendMessage(from, { text: '❌ שגיאה בהורדת המדיה. נסה שוב.' })
+      }
+    } catch {}
+    return
   }
 
-  await fetch(WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET },
-    body: JSON.stringify({ userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType }),
-  })
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET },
+      body: JSON.stringify({ userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType }),
+    })
+  } catch (err) {
+    console.error(`[${userId}] webhook call failed:`, err.message)
+  }
 }
 
 // ── REST API ─────────────────────────────────────────────
