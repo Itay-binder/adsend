@@ -1,25 +1,35 @@
 const CARDCOM_API = 'https://secure.cardcom.solutions/api/v11'
-const TERMINAL = process.env.CARDCOM_TERMINAL!
-const API_NAME = process.env.CARDCOM_API_NAME!
-const API_PASSWORD = process.env.CARDCOM_API_PASSWORD!
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL!
+
+function getConfig() {
+  return {
+    terminal: parseInt(process.env.CARDCOM_TERMINAL!),
+    apiName: process.env.CARDCOM_API_NAME!,
+    apiPassword: process.env.CARDCOM_API_PASSWORD!,
+    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://adsend.vercel.app',
+  }
+}
 
 export async function createPaymentPage(userId: string, userEmail?: string): Promise<{ url: string; lowProfileId: string }> {
-  const body = {
-    TerminalNumber: TERMINAL,
-    ApiName: API_NAME,
+  const { terminal, apiName, appUrl } = getConfig()
+
+  const body: Record<string, unknown> = {
+    TerminalNumber: terminal,
+    ApiName: apiName,
     Amount: 99,
-    Operation: 'ChargeAndCreateToken',
-    SuccessRedirectUrl: `${APP_URL}/subscribe/success`,
-    FailedRedirectUrl: `${APP_URL}/subscribe/failed`,
-    WebHookUrl: `${APP_URL}/api/webhooks/cardcom/${userId}`,
-    MaxPayments: 1,
-    Document: {
+    SuccessRedirectUrl: `${appUrl}/subscribe/success`,
+    FailedRedirectUrl: `${appUrl}/subscribe/failed`,
+    WebHookUrl: `${appUrl}/api/webhooks/cardcom/${userId}`,
+    IsCreateToken: true,
+  }
+
+  if (userEmail) {
+    body.Document = {
       DocumentTypeToCreate: 'auto',
       Language: 'he',
-      ...(userEmail ? { Email: userEmail, IsSendByEmail: true } : {}),
-      Products: [{ Description: 'AdSend — מנוי חודשי', Quantity: 1, UnitCost: 99 }],
-    },
+      Email: userEmail,
+      IsSendByEmail: true,
+      Products: [{ Description: 'AdSend - מנוי חודשי', Quantity: 1, UnitCost: 99 }],
+    }
   }
 
   const res = await fetch(`${CARDCOM_API}/LowProfile/Create`, {
@@ -29,21 +39,19 @@ export async function createPaymentPage(userId: string, userEmail?: string): Pro
   })
 
   const data = await res.json()
-  if (data.ResponseCode !== 0) throw new Error(`Cardcom error: ${data.Description}`)
+  if (data.ResponseCode !== 0) {
+    throw new Error(`Cardcom: ${data.Description ?? JSON.stringify(data)}`)
+  }
   return { url: data.Url, lowProfileId: data.LowProfileId }
 }
 
 export async function getLowProfileResult(lowProfileId: string) {
-  const body = {
-    TerminalNumber: TERMINAL,
-    ApiName: API_NAME,
-    LowProfileId: lowProfileId,
-  }
+  const { terminal, apiName } = getConfig()
 
   const res = await fetch(`${CARDCOM_API}/LowProfile/GetLpResult`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ TerminalNumber: terminal, ApiName: apiName, LowProfileId: lowProfileId }),
   })
 
   return res.json()
@@ -52,29 +60,29 @@ export async function getLowProfileResult(lowProfileId: string) {
 export async function chargeToken(
   token: string,
   cardExpMMYY: string,
-  userId: string,
   userEmail?: string,
   userName?: string,
 ): Promise<{ transactionId: number }> {
-  const body = {
-    TerminalNumber: TERMINAL,
-    ApiName: API_NAME,
+  const { terminal, apiName, apiPassword } = getConfig()
+
+  const body: Record<string, unknown> = {
+    TerminalNumber: terminal,
+    ApiName: apiName,
     Amount: 99,
     Token: token,
     CardExpirationMMYY: cardExpMMYY,
-    Advanced: { ApiPassword: API_PASSWORD },
-    ...(userEmail
-      ? {
-          Document: {
-            DocumentTypeToCreate: 'auto',
-            Language: 'he',
-            Name: userName,
-            Email: userEmail,
-            IsSendByEmail: true,
-            Products: [{ Description: 'AdSend — מנוי חודשי', Quantity: 1, UnitCost: 99 }],
-          },
-        }
-      : {}),
+    Advanced: { ApiPassword: apiPassword },
+  }
+
+  if (userEmail) {
+    body.Document = {
+      DocumentTypeToCreate: 'auto',
+      Language: 'he',
+      Name: userName,
+      Email: userEmail,
+      IsSendByEmail: true,
+      Products: [{ Description: 'AdSend - מנוי חודשי', Quantity: 1, UnitCost: 99 }],
+    }
   }
 
   const res = await fetch(`${CARDCOM_API}/Transactions/Transaction`, {

@@ -1,23 +1,40 @@
 'use client'
 
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function SubscribePage() {
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   async function handleSubscribe() {
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch('/api/cardcom/create-payment', { method: 'POST' })
       const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'שגיאה לא ידועה')
+        return
+      }
       if (data.url) {
         window.location.href = data.url
+      } else {
+        setError('לא התקבל קישור תשלום')
       }
+    } catch (e) {
+      setError((e as Error).message)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleSignOut() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   return (
@@ -51,6 +68,12 @@ export default function SubscribePage() {
             ))}
           </ul>
 
+          {error && (
+            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm text-center">
+              {error}
+            </div>
+          )}
+
           <button
             onClick={handleSubscribe}
             disabled={loading}
@@ -63,6 +86,13 @@ export default function SubscribePage() {
             תשלום מאובטח דרך Cardcom · SSL מוצפן
           </p>
         </div>
+
+        <button
+          onClick={handleSignOut}
+          className="mt-4 w-full text-center text-zinc-600 hover:text-zinc-400 text-sm transition-colors"
+        >
+          התנתקות
+        </button>
       </div>
     </div>
   )
