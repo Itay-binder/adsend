@@ -17,7 +17,11 @@ export async function GET() {
 
   try {
     const accounts = await getAdAccounts(conn.access_token)
-    const active = accounts.filter(a => a.account_status === 1)
+    const active = accounts.filter(a => a.account_status === 1).map(a => ({
+      account_id: a.id,
+      account_name: a.name,
+      currency: a.currency,
+    }))
     return NextResponse.json({ accounts: active })
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 })

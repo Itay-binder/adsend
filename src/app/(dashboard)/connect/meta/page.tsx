@@ -32,10 +32,15 @@ export default function ConnectMetaPage() {
       // Fetch available accounts from Meta
       fetch('/api/meta/available-accounts')
         .then(r => r.json())
-        .then(d => {
-          if (d.accounts) setAvailableAccounts(d.accounts)
-          else setError(d.error ?? 'שגיאה בטעינת חשבונות')
-          setLoading(false)
+        .then(async d => {
+          if (!d.accounts) { setError(d.error ?? 'שגיאה בטעינת חשבונות'); setLoading(false); return }
+          if (d.accounts.length === 1) {
+            // Auto-select if only one account
+            await selectAccount(d.accounts[0])
+          } else {
+            setAvailableAccounts(d.accounts)
+            setLoading(false)
+          }
         })
         .catch(() => { setError('שגיאה בטעינת חשבונות'); setLoading(false) })
     } else {
@@ -59,17 +64,21 @@ export default function ConnectMetaPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        account_id: acc.id ?? acc.account_id,
+        account_id: acc.account_id,
         account_name: acc.account_name,
         currency: acc.currency,
       }),
     })
+    setSaving(false)
     if (res.ok) {
-      router.push('/connect/meta')
+      setSelectedAccount(acc)
+      setConnected(true)
+      setAvailableAccounts([])
+      router.replace('/connect/meta')
     } else {
       const d = await res.json()
       setError(d.error ?? 'שגיאה בשמירה')
-      setSaving(false)
+      setLoading(false)
     }
   }
 
@@ -80,7 +89,7 @@ export default function ConnectMetaPage() {
     window.location.href = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes}&response_type=code`
   }
 
-  if (loading) return (
+  if (loading || saving) return (
     <div className="p-8 flex items-center justify-center h-64">
       <div className="w-8 h-8 border-2 border-zinc-600 border-t-blue-500 rounded-full animate-spin" />
     </div>
@@ -106,16 +115,16 @@ export default function ConnectMetaPage() {
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl overflow-hidden">
           {availableAccounts.map(acc => (
             <button
-              key={acc.id}
+              key={acc.account_id}
               onClick={() => selectAccount(acc)}
               disabled={saving}
               className="w-full px-4 py-4 flex items-center justify-between border-b border-zinc-800 last:border-0 hover:bg-zinc-700/50 transition-colors text-right disabled:opacity-50"
             >
-              <div>
+              <div className="text-right">
                 <p className="text-white text-sm font-medium">{acc.account_name}</p>
-                <p className="text-zinc-500 text-xs font-mono mt-0.5">{acc.id} · {acc.currency}</p>
+                <p className="text-zinc-500 text-xs font-mono mt-0.5">{acc.account_id} · {acc.currency}</p>
               </div>
-              <span className="text-zinc-400 text-sm">בחר ←</span>
+              <span className="text-zinc-400 text-sm mr-4">← בחר</span>
             </button>
           ))}
         </div>
