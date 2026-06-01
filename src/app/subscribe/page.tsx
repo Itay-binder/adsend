@@ -12,21 +12,28 @@ export default function SubscribePage() {
   async function handleSubscribe() {
     setLoading(true)
     setError(null)
+    const paymentUrl = process.env.NEXT_PUBLIC_CARDCOM_PAYMENT_URL
+    if (paymentUrl) {
+      window.location.href = paymentUrl
+      return
+    }
+    // Fallback: dynamic LowProfile
     try {
       const res = await fetch('/api/cardcom/create-payment', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'שגיאה לא ידועה')
+        setLoading(false)
         return
       }
       if (data.url) {
         window.location.href = data.url
       } else {
         setError('לא התקבל קישור תשלום')
+        setLoading(false)
       }
     } catch (e) {
       setError((e as Error).message)
-    } finally {
       setLoading(false)
     }
   }
