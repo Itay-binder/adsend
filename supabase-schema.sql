@@ -71,12 +71,29 @@ create table if not exists public.whatsapp_pending (
   updated_at timestamptz default now()
 );
 
+create table if not exists public.subscriptions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade unique,
+  status text default 'trial' check (status in ('trial','active','expired','cancelled')),
+  plan text default 'monthly',
+  amount integer default 99,
+  currency text default 'ILS',
+  card_token text,
+  card_exp text,
+  last_transaction_id bigint,
+  current_period_start timestamptz default now(),
+  current_period_end timestamptz default (now() + interval '7 days'),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- RLS policies
 alter table public.whatsapp_sessions enable row level security;
 alter table public.meta_connections enable row level security;
 alter table public.ad_accounts enable row level security;
 alter table public.uploads enable row level security;
 alter table public.whatsapp_pending enable row level security;
+alter table public.subscriptions enable row level security;
 
 create policy "Users manage own wa session" on public.whatsapp_sessions for all using (auth.uid() = user_id);
 create policy "Users manage own meta conn" on public.meta_connections for all using (auth.uid() = user_id);
@@ -84,9 +101,12 @@ create policy "Users manage own ad accounts" on public.ad_accounts for all using
 create policy "Users see own uploads" on public.uploads for all using (auth.uid() = user_id);
 create policy "Users manage own pending" on public.whatsapp_pending for all using (auth.uid() = user_id);
 
+create policy "Users see own subscription" on public.subscriptions for all using (auth.uid() = user_id);
+
 -- Service role bypass for webhook
 create policy "Service role full access wa sessions" on public.whatsapp_sessions for all to service_role using (true);
 create policy "Service role full access meta" on public.meta_connections for all to service_role using (true);
 create policy "Service role full access ad accounts" on public.ad_accounts for all to service_role using (true);
 create policy "Service role full access uploads" on public.uploads for all to service_role using (true);
 create policy "Service role full access pending" on public.whatsapp_pending for all to service_role using (true);
+create policy "Service role full access subscriptions" on public.subscriptions for all to service_role using (true);

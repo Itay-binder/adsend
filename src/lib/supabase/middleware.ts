@@ -23,10 +23,12 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/login')
-  const isDashboard = request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/connect') ||
-    request.nextUrl.pathname.startsWith('/academy')
+  const path = request.nextUrl.pathname
+  const isAuthPage = path.startsWith('/login')
+  const isSubscribePage = path.startsWith('/subscribe')
+  const isDashboard = path.startsWith('/dashboard') ||
+    path.startsWith('/connect') ||
+    path.startsWith('/academy')
 
   if (!user && isDashboard) {
     return NextResponse.redirect(new URL('/login', request.url))
@@ -34,6 +36,23 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
+  // Check active subscription for dashboard routes
+  if (user && isDashboard) {
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('status, current_period_end')
+      .eq('user_id', user.id)
+      .single()
+
+    const isActive = sub?.status === 'active' && sub?.current_period_end
+      ? new Date(sub.current_period_end) > new Date()
+      : false
+
+    if (!isActive && !isSubscribePage) {
+      return NextResponse.redirect(new URL('/subscribe', request.url))
+    }
   }
 
   return supabaseResponse
