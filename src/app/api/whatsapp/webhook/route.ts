@@ -238,6 +238,17 @@ export async function POST(request: Request) {
     const name = assetName()
 
     try {
+      // verify token has ads_management permission
+      const permRes = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${token}`)
+      const permData = await permRes.json()
+      const granted = (permData.data ?? []).filter((p: { permission: string; status: string }) => p.status === 'granted').map((p: { permission: string }) => p.permission)
+      console.error(`[upload] permissions: ${granted.join(',')}`)
+      if (!granted.includes('ads_management')) {
+        await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
+        await send(userId, from, `❌ חסרה הרשאת ads_management בחשבון Meta.\n\nכנס לאפליקציה → "חיבור Meta" → "החלף חשבון" ולחץ שוב על התחברות עם Facebook.`)
+        return NextResponse.json({ ok: true })
+      }
+
       let asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }
       if (pending.media_type === 'image') {
         const hash = await uploadImageCreative(adAccount.account_id, Buffer.from(pending.media_base64, 'base64'), token)
