@@ -109,11 +109,17 @@ async function handleIncoming(userId, sock, msg) {
   }
 
   try {
-    await fetch(WEBHOOK_URL, {
+    console.log(`[${userId}] calling webhook, mediaType=${mediaType}, bodySize=${mediaBuffer ? Math.round(mediaBuffer.length/1024)+'KB' : '0'}`)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30000)
+    const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET },
       body: JSON.stringify({ userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType }),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
+    console.log(`[${userId}] webhook response: ${res.status}`)
   } catch (err) {
     console.error(`[${userId}] webhook call failed:`, err.message)
   }

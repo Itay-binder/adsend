@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { ParsedAdIntent } from '@/types'
 
-const client = new Anthropic()
+const apiKey = process.env.ANTHROPIC_API_KEY
+const client = apiKey && apiKey !== 'placeholder_add_your_key' ? new Anthropic({ apiKey }) : null
 
 export async function parseAdIntent(
   message: string,
@@ -10,6 +11,14 @@ export async function parseAdIntent(
   const campaignList = campaigns
     .map(c => `- קמפיין: "${c.name}" (id: ${c.id})\n  סדרות: ${c.adsets.map(a => `"${a.name}"`).join(', ')}`)
     .join('\n')
+
+  if (!client) {
+    return {
+      campaign_hint: null, adset_hint: null, primary_text: null,
+      headline: null, cta: null, destination_url: null, utm: null,
+      status: 'PAUSED', confidence: 'low', missing: ['campaign', 'adset']
+    }
+  }
 
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
