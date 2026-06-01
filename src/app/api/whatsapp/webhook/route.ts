@@ -3,10 +3,12 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { parseAdIntent } from '@/lib/ai/parse-intent'
 import { getActiveCampaigns, getAdSets, uploadImageCreative, uploadVideoCreative, createAd } from '@/lib/meta/api'
 
-const supabase = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 const BAILEYS_SERVER = process.env.BAILEYS_SERVER_URL ?? 'http://localhost:3001'
 
@@ -29,6 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  const supabase = getSupabase()
   const body = await request.json()
   const { userId, from, messageType, text, mediaBuffer, mediaType } = body
 

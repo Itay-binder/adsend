@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MessageCircle, Facebook, BookOpen, Phone } from 'lucide-react'
+import { LayoutDashboard, MessageCircle, BookOpen, Phone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 const nav = [
   { href: '/dashboard', label: 'דשבורד', icon: LayoutDashboard },
   { href: '/connect/whatsapp', label: 'ווצאפ', icon: MessageCircle },
-  { href: '/connect/meta', label: 'Meta Ads', icon: Facebook },
+  { href: '/connect/meta', label: 'Meta Ads', icon: LayoutDashboard },
   { href: '/academy', label: 'אקדמיה', icon: BookOpen },
 ]
 

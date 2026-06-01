@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { MessageCircle, Facebook, Upload, ArrowLeft } from 'lucide-react'
+import { MessageCircle, Upload, ArrowLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -41,7 +41,7 @@ export default async function DashboardPage() {
           {waConnected ? 'ווצאפ מחובר ✓' : 'ווצאפ לא מחובר'}
         </Badge>
         <Badge variant={metaConnected ? 'default' : 'secondary'} className={metaConnected ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-zinc-800 text-zinc-400'}>
-          <Facebook className="w-3 h-3 ml-1" />
+          <span className="text-xs">f</span>
           {metaConnected ? 'Meta מחובר ✓' : 'Meta לא מחובר'}
         </Badge>
       </div>
@@ -53,9 +53,9 @@ export default async function DashboardPage() {
             <p className="text-white font-medium text-sm">חבר את הווצאפ שלך</p>
             <p className="text-zinc-400 text-xs mt-0.5">צריך לחבר כדי להעלות קריאייטיבים</p>
           </div>
-          <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1">
-            <Link href="/connect/whatsapp">חבר <ArrowLeft className="w-3 h-3" /></Link>
-          </Button>
+          <Link href="/connect/whatsapp" className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+            חבר <ArrowLeft className="w-3 h-3" />
+          </Link>
         </div>
       )}
 
@@ -65,9 +65,9 @@ export default async function DashboardPage() {
             <p className="text-white font-medium text-sm">חבר חשבון מודעות Meta</p>
             <p className="text-zinc-400 text-xs mt-0.5">נדרש לפני העלאת קריאייטיבים</p>
           </div>
-          <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700 text-white gap-1">
-            <Link href="/connect/meta">חבר <ArrowLeft className="w-3 h-3" /></Link>
-          </Button>
+          <Link href="/connect/meta" className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">
+            חבר <ArrowLeft className="w-3 h-3" />
+          </Link>
         </div>
       )}
 
