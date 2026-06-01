@@ -17,13 +17,17 @@ export default function ConnectWhatsAppPage() {
     setQrImage(null)
     try {
       const res = await fetch('/api/whatsapp/qr', { method: 'POST' })
+      if (!res.ok) { setStatus('error'); return }
       const data = await res.json()
-      if (data.qr) {
-        setQrImage(data.qr)
-        setStatus('connecting')
-      } else if (data.status === 'connected') {
+      if (data.status === 'connected') {
         setStatus('connected')
         setPhone(data.phone)
+      } else if (data.qr) {
+        setQrImage(data.qr)
+        setStatus('connecting')
+      } else if (data.status === 'connecting') {
+        // QR not ready yet — polling will pick it up
+        setStatus('connecting')
       } else {
         setStatus('error')
       }
@@ -36,18 +40,22 @@ export default function ConnectWhatsAppPage() {
     fetchQR()
   }, [fetchQR])
 
-  // Poll for connection status while QR is shown
+  // Poll for QR + connection status while connecting
   useEffect(() => {
     if (status !== 'connecting') return
     const interval = setInterval(async () => {
-      const res = await fetch('/api/whatsapp/qr')
-      const data = await res.json()
-      if (data.status === 'connected') {
-        setStatus('connected')
-        setPhone(data.phone)
-        clearInterval(interval)
-      }
-    }, 3000)
+      try {
+        const res = await fetch('/api/whatsapp/qr')
+        const data = await res.json()
+        if (data.status === 'connected') {
+          setStatus('connected')
+          setPhone(data.phone)
+          clearInterval(interval)
+        } else if (data.qr) {
+          setQrImage(data.qr)
+        }
+      } catch { /* ignore */ }
+    }, 2000)
     return () => clearInterval(interval)
   }, [status])
 
