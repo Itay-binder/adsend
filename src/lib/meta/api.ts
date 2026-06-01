@@ -1,4 +1,4 @@
-const META_API = 'https://graph.facebook.com/v20.0'
+const META_API = 'https://graph.facebook.com/v21.0'
 
 export async function getAdAccounts(accessToken: string) {
   const res = await fetch(
@@ -10,21 +10,101 @@ export async function getAdAccounts(accessToken: string) {
 }
 
 export async function getActiveCampaigns(adAccountId: string, accessToken: string) {
+  const filtering = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]))
   const res = await fetch(
-    `${META_API}/${adAccountId}/campaigns?fields=id,name,status,objective&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=50&access_token=${accessToken}`
+    `${META_API}/${adAccountId}/campaigns?fields=id,name,status,objective&filtering=${filtering}&limit=50&access_token=${accessToken}`
   )
   const data = await res.json()
   if (data.error) throw new Error(data.error.message)
-  return data.data as { id: string; name: string; status: string }[]
+  const campaigns = (data.data as { id: string; name: string; status: string; objective: string }[]) ?? []
+  return campaigns.filter(c => {
+    const n = c.name.toLowerCase()
+    return !n.startsWith('instagram post') && !n.startsWith('facebook post') && c.objective !== 'POST_ENGAGEMENT'
+  })
 }
 
 export async function getAdSets(campaignId: string, accessToken: string) {
   const res = await fetch(
-    `${META_API}/${campaignId}/adsets?fields=id,name,status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED"]}]&limit=50&access_token=${accessToken}`
+    `${META_API}/${campaignId}/adsets?fields=id,name,status&limit=50&access_token=${accessToken}`
   )
   const data = await res.json()
   if (data.error) throw new Error(data.error.message)
-  return data.data as { id: string; name: string; status: string }[]
+  const sets = (data.data as { id: string; name: string; status: string }[]) ?? []
+  return sets.sort((a, b) => (b.status === 'ACTIVE' ? 1 : 0) - (a.status === 'ACTIVE' ? 1 : 0))
+}
+
+export async function getAdSetAds(adSetId: string, accessToken: string) {
+  const res = await fetch(
+    `${META_API}/${adSetId}/ads?fields=id,name,creative{id,object_story_spec}&limit=5&access_token=${accessToken}`
+  )
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  return (data.data ?? []) as { id: string; name: string; creative?: { id: string; object_story_spec: Record<string, unknown> } }[]
+}
+
+export function swapMediaInSpec(spec: Record<string, unknown>, asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }): Record<string, unknown> {
+  const s = JSON.parse(JSON.stringify(spec))
+  if (asset.type === 'image') {
+    if (s.link_data) { s.link_data.image_hash = asset.hash; delete s.link_data.video_id }
+    else if (s.video_data) {
+      s.link_data = { image_hash: asset.hash, link: s.video_data?.call_to_action?.value?.link, message: s.video_data?.message }
+      delete s.video_data
+    }
+  } else {
+    if (s.video_data) { s.video_data.video_id = asset.videoId }
+    else if (s.link_data) {
+      s.video_data = { video_id: asset.videoId, message: s.link_data?.message, call_to_action: { type: 'LEARN_MORE', value: { link: s.link_data?.link } } }
+      delete s.link_data
+    }
+  }
+  return s
+}
+
+export function applyUtmToSpec(spec: Record<string, unknown>, campaignName: string, adName: string): Record<string, unknown> {
+  const slug = (s: string) => (s || '').toLowerCase().replace(/\s+/g, '_').replace(/[^\w֐-׿]/g, '').slice(0, 50)
+  const addUtm = (url: string) => {
+    try {
+      const u = new URL(url)
+      u.searchParams.set('utm_source', 'facebook')
+      u.searchParams.set('utm_medium', 'paid')
+      u.searchParams.set('utm_campaign', slug(campaignName))
+      u.searchParams.set('utm_content', slug(adName))
+      return u.toString()
+    } catch { return url }
+  }
+  const s = JSON.parse(JSON.stringify(spec))
+  if (s.video_data?.call_to_action?.value?.link) s.video_data.call_to_action.value.link = addUtm(s.video_data.call_to_action.value.link)
+  if (s.link_data?.link) s.link_data.link = addUtm(s.link_data.link)
+  return s
+}
+
+export async function createAdFromSpec(adAccountId: string, adSetId: string, name: string, spec: Record<string, unknown>, accessToken: string): Promise<string> {
+  const creativeRes = await fetch(`${META_API}/${adAccountId}/adcreatives`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, object_story_spec: spec, access_token: accessToken }),
+  })
+  const creativeData = await creativeRes.json()
+  if (creativeData.error) throw new Error(creativeData.error.message)
+
+  const adRes = await fetch(`${META_API}/${adAccountId}/ads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, adset_id: adSetId, creative: { creative_id: creativeData.id }, status: 'PAUSED', access_token: accessToken }),
+  })
+  const adData = await adRes.json()
+  if (adData.error) throw new Error(adData.error.message)
+  return adData.id as string
+}
+
+export async function activateAd(adId: string, accessToken: string): Promise<void> {
+  const res = await fetch(`${META_API}/${adId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'ACTIVE', access_token: accessToken }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
 }
 
 export async function uploadImageCreative(
