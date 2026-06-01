@@ -250,6 +250,17 @@ export async function POST(request: Request) {
       const results: string[] = []
       const errors: string[] = []
 
+      // fetch page_id once for all adsets
+      let cachedPageId: string | null = null
+      const getPageId = async () => {
+        if (cachedPageId) return cachedPageId
+        const pageRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${token}`)
+        const pageData = await pageRes.json()
+        if (!pageData.data?.[0]) throw new Error('לא נמצא דף פייסבוק מחובר')
+        cachedPageId = pageData.data[0].id as string
+        return cachedPageId
+      }
+
       for (const adSetId of selectedIds) {
         try {
           const existingAds = await getAdSetAds(adSetId, token)
@@ -269,12 +280,10 @@ export async function POST(request: Request) {
               if (vd) vd.message = pending.primary_text
               if (ld) ld.message = pending.primary_text
             }
+            // ensure page_id is present (Meta doesn't always return it in object_story_spec)
+            if (!spec.page_id) spec.page_id = await getPageId()
           } else {
-            // fallback: build spec from page
-            const pageRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${token}`)
-            const pageData = await pageRes.json()
-            if (!pageData.data?.[0]) throw new Error('לא נמצא דף פייסבוק מחובר')
-            const pageId = pageData.data[0].id as string
+            const pageId = await getPageId()
             if (asset.type === 'image') {
               spec = { page_id: pageId, link_data: { image_hash: asset.hash, link: pending.destination_url ?? 'https://example.com', message: pending.primary_text ?? '' } }
             } else {
@@ -295,6 +304,7 @@ export async function POST(request: Request) {
             status: 'PAUSED',
           })
         } catch (e) {
+          console.error(`[upload] adset ${adSetId} error:`, e)
           errors.push(`${adSetId}: ${(e as Error).message.slice(0, 80)}`)
         }
       }
@@ -312,6 +322,7 @@ export async function POST(request: Request) {
       await send(userId, from, msg)
 
     } catch (e) {
+      console.error(`[upload] top-level error for user ${userId}:`, e)
       await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
       await send(userId, from, `❌ שגיאה בהעלאה: ${(e as Error).message.slice(0, 120)}`)
     }
