@@ -304,8 +304,9 @@ export async function POST(request: Request) {
             status: 'PAUSED',
           })
         } catch (e) {
-          console.error(`[upload] adset ${adSetId} error:`, e)
-          errors.push(`${adSetId}: ${(e as Error).message.slice(0, 80)}`)
+          const msg = (e as Error).message ?? String(e)
+          console.error(`[upload] adset ${adSetId}: ${msg}`)
+          errors.push(`${adSetId}: ${msg.slice(0, 100)}`)
         }
       }
 
@@ -322,9 +323,10 @@ export async function POST(request: Request) {
       await send(userId, from, msg)
 
     } catch (e) {
-      console.error(`[upload] top-level error for user ${userId}:`, e)
+      const msg = (e as Error).message ?? String(e)
+      console.error(`[upload] TOP ERR ${userId}: ${msg}`)
       await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-      await send(userId, from, `❌ שגיאה בהעלאה: ${(e as Error).message.slice(0, 120)}`)
+      await send(userId, from, `❌ שגיאה בהעלאה: ${msg}`)
     }
     return NextResponse.json({ ok: true })
   }
