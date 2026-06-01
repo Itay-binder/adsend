@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { refreshLongLivedToken, getAdAccounts } from '@/lib/meta/api'
+import { refreshLongLivedToken } from '@/lib/meta/api'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -36,24 +36,7 @@ export async function GET(request: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
-    // Fetch and save ad accounts
-    const accounts = await getAdAccounts(token)
-    const active = accounts.filter(a => a.account_status === 1)
-
-    if (active.length > 0) {
-      await supabase.from('ad_accounts').upsert(
-        active.map(a => ({
-          user_id: user.id,
-          account_id: a.id,
-          account_name: a.name,
-          currency: a.currency,
-          is_active: true,
-        })),
-        { onConflict: 'user_id,account_id' }
-      )
-    }
-
-    return NextResponse.redirect(`${appUrl}/connect/meta?success=1`)
+    return NextResponse.redirect(`${appUrl}/connect/meta?choose=1`)
   } catch (err) {
     console.error('Meta OAuth error:', err)
     return NextResponse.redirect(`${appUrl}/connect/meta?error=oauth_failed`)
