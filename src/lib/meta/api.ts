@@ -142,7 +142,7 @@ export async function uploadVideoCreative(
 ): Promise<string> {
   const accountId = normalizeAdAccountId(adAccountId)
   const form = new FormData()
-  form.append('source', new Blob([videoBuffer], { type: 'video/mp4' }), 'creative.mp4')
+  form.append('source', new Blob([new Uint8Array(videoBuffer)], { type: 'video/mp4' }), 'creative.mp4')
   form.append('access_token', accessToken)
 
   const res = await fetch(`${META_API}/${accountId}/advideos`, {

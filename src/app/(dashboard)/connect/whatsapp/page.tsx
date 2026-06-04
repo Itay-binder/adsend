@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import Image from 'next/image'
 
 type Status = 'disconnected' | 'connecting' | 'connected' | 'error'
@@ -172,11 +171,12 @@ export default function ConnectWhatsAppPage() {
 
               {!pairingCode ? (
                 <div className="flex flex-col gap-3">
-                  <Input
+                  <input
+                    type="tel"
                     placeholder="מספר טלפון (לדוג׳: 972526660006)"
                     value={phoneInput}
                     onChange={e => setPhoneInput(e.target.value)}
-                    className="bg-zinc-900 border-zinc-700 text-white text-left placeholder:text-zinc-600"
+                    className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 text-left"
                     dir="ltr"
                   />
                   {phoneError && <p className="text-red-400 text-xs">{phoneError}</p>}
