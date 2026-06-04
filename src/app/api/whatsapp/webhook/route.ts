@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { parseAdIntent } from '@/lib/ai/parse-intent'
 import {
-  getActiveCampaigns, getAdSets, getAdSetAds,
+  getActiveCampaigns, getAdSets,
   uploadImageCreative, uploadVideoCreative,
-  swapMediaInSpec, applyUtmToSpec, createAdFromSpec, activateAd
+  buildAndCreateAd, activateAd
 } from '@/lib/meta/api'
 
 function getSupabase() {
@@ -238,17 +238,6 @@ export async function POST(request: Request) {
     const name = assetName()
 
     try {
-      // verify token has ads_management permission
-      const permRes = await fetch(`https://graph.facebook.com/v21.0/me/permissions?access_token=${token}`)
-      const permData = await permRes.json()
-      const granted = (permData.data ?? []).filter((p: { permission: string; status: string }) => p.status === 'granted').map((p: { permission: string }) => p.permission)
-      console.error(`[upload] permissions: ${granted.join(',')}`)
-      if (!granted.includes('ads_management')) {
-        await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-        await send(userId, from, `❌ חסרה הרשאת ads_management בחשבון Meta.\n\nכנס לאפליקציה → "חיבור Meta" → "החלף חשבון" ולחץ שוב על התחברות עם Facebook.`)
-        return NextResponse.json({ ok: true })
-      }
-
       let asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }
       if (pending.media_type === 'image') {
         const hash = await uploadImageCreative(adAccount.account_id, Buffer.from(pending.media_base64, 'base64'), token)
@@ -261,50 +250,17 @@ export async function POST(request: Request) {
       const results: string[] = []
       const errors: string[] = []
 
-      // fetch page_id once for all adsets
-      let cachedPageId: string | null = null
-      const getPageId = async () => {
-        if (cachedPageId) return cachedPageId
-        const pageRes = await fetch(`https://graph.facebook.com/v21.0/me/accounts?access_token=${token}`)
-        const pageData = await pageRes.json()
-        if (!pageData.data?.[0]) throw new Error('לא נמצא דף פייסבוק מחובר')
-        cachedPageId = pageData.data[0].id as string
-        return cachedPageId
-      }
-
       for (const adSetId of selectedIds) {
         try {
-          const existingAds = await getAdSetAds(adSetId, token)
-          let spec: Record<string, unknown>
-
-          if (existingAds.length && existingAds[0].creative?.object_story_spec) {
-            spec = swapMediaInSpec(existingAds[0].creative.object_story_spec, asset)
-            if (pending.destination_url) {
-              const vd = spec.video_data as Record<string, unknown> | undefined
-              const ld = spec.link_data as Record<string, unknown> | undefined
-              if (vd?.call_to_action) ((vd.call_to_action as Record<string, unknown>).value as Record<string, unknown>).link = pending.destination_url
-              if (ld) ld.link = pending.destination_url
-            }
-            if (pending.primary_text) {
-              const vd = spec.video_data as Record<string, unknown> | undefined
-              const ld = spec.link_data as Record<string, unknown> | undefined
-              if (vd) vd.message = pending.primary_text
-              if (ld) ld.message = pending.primary_text
-            }
-            // ensure page_id is present (Meta doesn't always return it in object_story_spec)
-            if (!spec.page_id) spec.page_id = await getPageId()
-          } else {
-            // No existing ads to clone — build minimal spec without CTA (avoids optimization goal mismatch)
-            const pageId = await getPageId()
-            if (asset.type === 'image') {
-              spec = { page_id: pageId, link_data: { image_hash: asset.hash, ...(pending.destination_url ? { link: pending.destination_url } : {}), ...(pending.primary_text ? { message: pending.primary_text } : {}) } }
-            } else {
-              spec = { page_id: pageId, video_data: { video_id: asset.videoId, ...(pending.primary_text ? { message: pending.primary_text } : {}), ...(pending.destination_url ? { call_to_action: { type: 'LEARN_MORE', value: { link: pending.destination_url } } } : {}) } }
-            }
-          }
-
-          spec = applyUtmToSpec(spec, pending.campaign_name ?? '', name)
-          const adId = await createAdFromSpec(adAccount.account_id, adSetId, name, spec, token)
+          const adId = await buildAndCreateAd(
+            adAccount.account_id,
+            adSetId,
+            name,
+            asset,
+            { link: pending.destination_url ?? undefined, message: pending.primary_text ?? undefined },
+            token,
+            pending.campaign_name ?? ''
+          )
           results.push(adId)
 
           await supabase.from('uploads').insert({

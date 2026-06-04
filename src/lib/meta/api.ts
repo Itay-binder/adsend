@@ -1,8 +1,24 @@
 const META_API = 'https://graph.facebook.com/v22.0'
 
 function normalizeAdAccountId(id: string): string {
-  const stripped = id.replace(/^act_/, '')
-  return `act_${stripped}`
+  return `act_${id.replace(/^act_/, '')}`
+}
+
+// POST helper — form-encoded like PowerCouple (proven to work)
+async function metaPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const form = new URLSearchParams()
+  for (const [k, v] of Object.entries(body)) {
+    if (v !== undefined && v !== null) {
+      form.set(k, typeof v === 'object' ? JSON.stringify(v) : String(v))
+    }
+  }
+  const res = await fetch(`${META_API}${path}`, { method: 'POST', body: form })
+  const json = await res.json() as T & { error?: { message?: string; error_user_msg?: string } }
+  if (!res.ok) {
+    const e = (json as Record<string, unknown>).error as Record<string, string> | undefined
+    throw new Error(e?.error_user_msg?.trim() || e?.message?.trim() || `Meta error ${res.status}`)
+  }
+  return json
 }
 
 export async function getAdAccounts(accessToken: string) {
@@ -38,51 +54,61 @@ export async function getAdSets(campaignId: string, accessToken: string) {
   return sets.sort((a, b) => (b.status === 'ACTIVE' ? 1 : 0) - (a.status === 'ACTIVE' ? 1 : 0))
 }
 
-export async function getAdSetAds(adSetId: string, accessToken: string) {
-  const res = await fetch(
-    `${META_API}/${adSetId}/ads?fields=id,name,creative{id,object_story_spec}&limit=5&access_token=${accessToken}`
-  )
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return (data.data ?? []) as { id: string; name: string; creative?: { id: string; object_story_spec: Record<string, unknown> } }[]
+type ExistingAdSpec = {
+  pageId?: string
+  message?: string
+  headline?: string
+  ctaType?: string
+  link?: string
 }
 
-export function swapMediaInSpec(spec: Record<string, unknown>, asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }): Record<string, unknown> {
-  const s = JSON.parse(JSON.stringify(spec))
+function extractSpecParams(spec: Record<string, unknown>): ExistingAdSpec {
+  const ld = spec.link_data as Record<string, unknown> | undefined
+  const vd = spec.video_data as Record<string, unknown> | undefined
+  const ldCta = ld?.call_to_action as Record<string, unknown> | undefined
+  const vdCta = vd?.call_to_action as Record<string, unknown> | undefined
+  const ctaType = (ldCta?.type ?? vdCta?.type) as string | undefined
+  const ctaLink = (
+    (ldCta?.value as Record<string, unknown> | undefined)?.link ??
+    (vdCta?.value as Record<string, unknown> | undefined)?.link ??
+    ld?.link
+  ) as string | undefined
+  return {
+    pageId: spec.page_id as string | undefined,
+    message: (ld?.message ?? vd?.message) as string | undefined,
+    headline: (ld?.name ?? vd?.title) as string | undefined,
+    ctaType,
+    link: ctaLink,
+  }
+}
+
+function buildSpec(
+  asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string },
+  p: ExistingAdSpec
+): Record<string, unknown> {
+  const hasCta = p.ctaType && p.link
   if (asset.type === 'image') {
-    if (s.link_data) {
-      s.link_data.image_hash = asset.hash
-      delete s.link_data.video_id
-    } else if (s.video_data) {
-      // video → image: preserve CTA and link from original video spec
-      const vd = s.video_data as Record<string, unknown>
-      s.link_data = {
+    return {
+      page_id: p.pageId,
+      link_data: {
         image_hash: asset.hash,
-        message: vd.message,
-        link: (vd.call_to_action as Record<string, unknown> | undefined)?.value
-          ? ((vd.call_to_action as Record<string, unknown>).value as Record<string, unknown>).link
-          : undefined,
-        ...(vd.call_to_action ? { call_to_action: vd.call_to_action } : {}),
-      }
-      delete s.video_data
+        ...(p.link ? { link: p.link } : {}),
+        ...(p.message ? { message: p.message } : {}),
+        ...(p.headline ? { name: p.headline } : {}),
+        ...(hasCta ? { call_to_action: { type: p.ctaType, value: { link: p.link } } } : {}),
+      },
     }
   } else {
-    if (s.video_data) {
-      s.video_data.video_id = asset.videoId
-    } else if (s.link_data) {
-      // image → video: preserve CTA from original link_data spec
-      const ld = s.link_data as Record<string, unknown>
-      s.video_data = {
+    return {
+      page_id: p.pageId,
+      video_data: {
         video_id: asset.videoId,
-        message: ld.message,
-        ...(ld.call_to_action
-          ? { call_to_action: ld.call_to_action }
-          : ld.link ? { call_to_action: { type: 'LEARN_MORE', value: { link: ld.link } } } : {}),
-      }
-      delete s.link_data
+        ...(p.message ? { message: p.message } : {}),
+        ...(p.headline ? { title: p.headline } : {}),
+        ...(hasCta ? { call_to_action: { type: p.ctaType, value: { link: p.link } } } : {}),
+      },
     }
   }
-  return s
 }
 
 export function applyUtmToSpec(spec: Record<string, unknown>, campaignName: string, adName: string): Record<string, unknown> {
@@ -100,42 +126,68 @@ export function applyUtmToSpec(spec: Record<string, unknown>, campaignName: stri
   const s = JSON.parse(JSON.stringify(spec))
   if (s.video_data?.call_to_action?.value?.link) s.video_data.call_to_action.value.link = addUtm(s.video_data.call_to_action.value.link)
   if (s.link_data?.link) s.link_data.link = addUtm(s.link_data.link)
+  if (s.link_data?.call_to_action?.value?.link) s.link_data.call_to_action.value.link = addUtm(s.link_data.call_to_action.value.link)
   return s
 }
 
-export async function createAdFromSpec(adAccountId: string, adSetId: string, name: string, spec: Record<string, unknown>, accessToken: string): Promise<string> {
+export async function buildAndCreateAd(
+  adAccountId: string,
+  adSetId: string,
+  adName: string,
+  asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string },
+  overrides: { link?: string; message?: string },
+  accessToken: string,
+  campaignName: string
+): Promise<string> {
   const accountId = normalizeAdAccountId(adAccountId)
-  console.error(`[createAdFromSpec] spec: ${JSON.stringify(spec)}`)
-  const creativeRes = await fetch(`${META_API}/${accountId}/adcreatives`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, object_story_spec: spec, access_token: accessToken }),
-  })
-  const creativeData = await creativeRes.json() as { id?: string; error?: { message: string; error_user_msg?: string; error_data?: unknown; error_subcode?: number } }
-  if (!creativeRes.ok || creativeData.error) {
-    const fullErr = JSON.stringify(creativeData.error)
-    console.error(`[createAdFromSpec] error: ${fullErr}`)
-    throw new Error(fullErr)
+
+  // 1. Get existing ad from adset to clone its params
+  const adsRes = await fetch(
+    `${META_API}/${adSetId}/ads?fields=id,creative{id,object_story_spec}&limit=1&access_token=${accessToken}`
+  )
+  const adsData = await adsRes.json()
+  const existingSpec = adsData.data?.[0]?.creative?.object_story_spec as Record<string, unknown> | undefined
+
+  // 2. Extract params from existing ad OR fetch page_id as fallback
+  let params: ExistingAdSpec = existingSpec ? extractSpecParams(existingSpec) : {}
+  if (!params.pageId) {
+    const pageRes = await fetch(`${META_API}/me/accounts?access_token=${accessToken}`)
+    const pageData = await pageRes.json()
+    params.pageId = pageData.data?.[0]?.id
+    if (!params.pageId) throw new Error('לא נמצא דף פייסבוק מחובר לחשבון')
   }
 
-  const adRes = await fetch(`${META_API}/${accountId}/ads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, adset_id: adSetId, creative: { creative_id: creativeData.id }, status: 'PAUSED', access_token: accessToken }),
+  // 3. Apply user overrides (link, copy)
+  if (overrides.link) params = { ...params, link: overrides.link }
+  if (overrides.message) params = { ...params, message: overrides.message }
+
+  // 4. Build fresh spec + UTM
+  let spec = buildSpec(asset, params)
+  spec = applyUtmToSpec(spec, campaignName, adName)
+
+  // 5. Create creative (form-encoded like PowerCouple)
+  const creative = await metaPost<{ id?: string }>(`/${accountId}/adcreatives`, {
+    name: `${adName} - Creative`,
+    object_story_spec: spec,
+    access_token: accessToken,
   })
-  const adData = await adRes.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
-  if (!adRes.ok || adData.error) throw new Error(adData.error?.error_user_msg ?? adData.error?.message ?? `Ad error ${adRes.status}`)
-  return adData.id!
+  if (!creative.id) throw new Error('יצירת קריאייטיב נכשלה')
+
+  // 6. Create ad
+  const ad = await metaPost<{ id?: string }>(`/${accountId}/ads`, {
+    name: adName,
+    adset_id: adSetId,
+    creative: { creative_id: creative.id },
+    status: 'PAUSED',
+    access_token: accessToken,
+  })
+  if (!ad.id) throw new Error('יצירת מודעה נכשלה')
+
+  return ad.id
 }
 
 export async function activateAd(adId: string, accessToken: string): Promise<void> {
-  const res = await fetch(`${META_API}/${adId}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: 'ACTIVE', access_token: accessToken }),
-  })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
+  await metaPost(`/${adId}`, { status: 'ACTIVE', access_token: accessToken })
 }
 
 export async function uploadImageCreative(
@@ -148,11 +200,7 @@ export async function uploadImageCreative(
   const form = new FormData()
   form.append('bytes', base64)
   form.append('access_token', accessToken)
-
-  const res = await fetch(`${META_API}/${accountId}/adimages`, {
-    method: 'POST',
-    body: form,
-  })
+  const res = await fetch(`${META_API}/${accountId}/adimages`, { method: 'POST', body: form })
   const data = await res.json() as { images?: Record<string, { hash: string }>; error?: { message: string; error_user_msg?: string } }
   if (!res.ok || data.error) throw new Error(data.error?.error_user_msg ?? data.error?.message ?? `Meta error ${res.status}`)
   const hash = Object.values(data.images ?? {})[0]?.hash
@@ -169,85 +217,10 @@ export async function uploadVideoCreative(
   const form = new FormData()
   form.append('source', new Blob([new Uint8Array(videoBuffer)], { type: 'video/mp4' }), 'creative.mp4')
   form.append('access_token', accessToken)
-
-  const res = await fetch(`${META_API}/${accountId}/advideos`, {
-    method: 'POST',
-    body: form,
-  })
+  const res = await fetch(`${META_API}/${accountId}/advideos`, { method: 'POST', body: form })
   const data = await res.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
   if (!res.ok || !data.id) throw new Error(data.error?.error_user_msg ?? data.error?.message ?? `Meta error ${res.status}`)
   return data.id
-}
-
-export async function createAd({
-  adAccountId, adsetId, name, imageHash, videoId,
-  primaryText, headline, cta, destinationUrl, utm, status, accessToken
-}: {
-  adAccountId: string
-  adsetId: string
-  name: string
-  imageHash?: string
-  videoId?: string
-  primaryText?: string
-  headline?: string
-  cta?: string
-  destinationUrl?: string
-  utm?: string
-  status: 'PAUSED' | 'ACTIVE'
-  accessToken: string
-}): Promise<string> {
-  const pageId = await getPageId(accessToken)
-  const url = utm && destinationUrl ? `${destinationUrl}?${utm}` : destinationUrl
-
-  const objectStorySpec: Record<string, unknown> = { page_id: pageId }
-
-  if (imageHash) {
-    objectStorySpec.link_data = {
-      image_hash: imageHash,
-      message: primaryText,
-      name: headline,
-      call_to_action: cta ? { type: cta, value: { link: url } } : undefined,
-      link: url,
-    }
-  } else if (videoId) {
-    objectStorySpec.video_data = {
-      video_id: videoId,
-      message: primaryText,
-      title: headline,
-      call_to_action: cta ? { type: cta, value: { link: url } } : undefined,
-      link_description: url,
-    }
-  }
-
-  const creativeRes = await fetch(`${META_API}/${adAccountId}/adcreatives`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, object_story_spec: objectStorySpec, access_token: accessToken }),
-  })
-  const creativeData = await creativeRes.json()
-  if (creativeData.error) throw new Error(creativeData.error.message)
-
-  const adRes = await fetch(`${META_API}/${adAccountId}/ads`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name,
-      adset_id: adsetId,
-      creative: { creative_id: creativeData.id },
-      status,
-      access_token: accessToken,
-    }),
-  })
-  const adData = await adRes.json()
-  if (adData.error) throw new Error(adData.error.message)
-  return adData.id as string
-}
-
-async function getPageId(accessToken: string): Promise<string> {
-  const res = await fetch(`${META_API}/me/accounts?access_token=${accessToken}`)
-  const data = await res.json()
-  if (data.error || !data.data?.[0]) throw new Error('No Facebook page found')
-  return data.data[0].id as string
 }
 
 export async function refreshLongLivedToken(shortToken: string): Promise<{ token: string; expires: Date }> {
