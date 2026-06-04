@@ -1,4 +1,9 @@
-const META_API = 'https://graph.facebook.com/v21.0'
+const META_API = 'https://graph.facebook.com/v22.0'
+
+function normalizeAdAccountId(id: string): string {
+  const stripped = id.replace(/^act_/, '')
+  return `act_${stripped}`
+}
 
 export async function getAdAccounts(accessToken: string) {
   const res = await fetch(
@@ -79,22 +84,23 @@ export function applyUtmToSpec(spec: Record<string, unknown>, campaignName: stri
 }
 
 export async function createAdFromSpec(adAccountId: string, adSetId: string, name: string, spec: Record<string, unknown>, accessToken: string): Promise<string> {
-  const creativeRes = await fetch(`${META_API}/${adAccountId}/adcreatives`, {
+  const accountId = normalizeAdAccountId(adAccountId)
+  const creativeRes = await fetch(`${META_API}/${accountId}/adcreatives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, object_story_spec: spec, access_token: accessToken }),
   })
-  const creativeData = await creativeRes.json()
-  if (creativeData.error) throw new Error(creativeData.error.message)
+  const creativeData = await creativeRes.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
+  if (!creativeRes.ok || creativeData.error) throw new Error(creativeData.error?.error_user_msg ?? creativeData.error?.message ?? `Creative error ${creativeRes.status}`)
 
-  const adRes = await fetch(`${META_API}/${adAccountId}/ads`, {
+  const adRes = await fetch(`${META_API}/${accountId}/ads`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, adset_id: adSetId, creative: { creative_id: creativeData.id }, status: 'PAUSED', access_token: accessToken }),
   })
-  const adData = await adRes.json()
-  if (adData.error) throw new Error(adData.error.message)
-  return adData.id as string
+  const adData = await adRes.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
+  if (!adRes.ok || adData.error) throw new Error(adData.error?.error_user_msg ?? adData.error?.message ?? `Ad error ${adRes.status}`)
+  return adData.id!
 }
 
 export async function activateAd(adId: string, accessToken: string): Promise<void> {
@@ -112,21 +118,21 @@ export async function uploadImageCreative(
   imageBuffer: Buffer,
   accessToken: string
 ): Promise<string> {
-  const FormData = (await import('form-data')).default
+  const accountId = normalizeAdAccountId(adAccountId)
+  const base64 = imageBuffer.toString('base64')
   const form = new FormData()
-  form.append('source', imageBuffer, { filename: 'creative.jpg', contentType: 'image/jpeg' })
+  form.append('bytes', base64)
   form.append('access_token', accessToken)
 
-  const res = await fetch(`${META_API}/${adAccountId}/adimages`, {
+  const res = await fetch(`${META_API}/${accountId}/adimages`, {
     method: 'POST',
-    body: form as unknown as BodyInit,
-    headers: form.getHeaders(),
+    body: form,
   })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  const images = data.images
-  const hash = Object.values(images)[0] as { hash: string }
-  return hash.hash
+  const data = await res.json() as { images?: Record<string, { hash: string }>; error?: { message: string; error_user_msg?: string } }
+  if (!res.ok || data.error) throw new Error(data.error?.error_user_msg ?? data.error?.message ?? `Meta error ${res.status}`)
+  const hash = Object.values(data.images ?? {})[0]?.hash
+  if (!hash) throw new Error('Meta לא החזיר hash לתמונה')
+  return hash
 }
 
 export async function uploadVideoCreative(
@@ -134,19 +140,18 @@ export async function uploadVideoCreative(
   videoBuffer: Buffer,
   accessToken: string
 ): Promise<string> {
-  const FormData = (await import('form-data')).default
+  const accountId = normalizeAdAccountId(adAccountId)
   const form = new FormData()
-  form.append('source', videoBuffer, { filename: 'creative.mp4', contentType: 'video/mp4' })
+  form.append('source', new Blob([videoBuffer], { type: 'video/mp4' }), 'creative.mp4')
   form.append('access_token', accessToken)
 
-  const res = await fetch(`${META_API}/${adAccountId}/advideos`, {
+  const res = await fetch(`${META_API}/${accountId}/advideos`, {
     method: 'POST',
-    body: form as unknown as BodyInit,
-    headers: form.getHeaders(),
+    body: form,
   })
-  const data = await res.json()
-  if (data.error) throw new Error(data.error.message)
-  return data.id as string
+  const data = await res.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
+  if (!res.ok || !data.id) throw new Error(data.error?.error_user_msg ?? data.error?.message ?? `Meta error ${res.status}`)
+  return data.id
 }
 
 export async function createAd({

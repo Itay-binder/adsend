@@ -148,6 +148,33 @@ app.post('/session/:userId/send', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Start session with phone number pairing (no QR needed)
+app.post('/session/:userId/pairing-code', async (req, res) => {
+  const { userId } = req.params
+  const { phone } = req.body // e.g. "972526660006"
+  if (!phone) return res.status(400).json({ ok: false, error: 'phone required' })
+
+  const existing = sessions.get(userId)
+  if (existing?.status === 'connected') return res.json({ ok: false, error: 'already connected' })
+
+  // Start session if not already connecting
+  if (!existing || existing.status === 'disconnected') {
+    await startSession(userId)
+    // Give socket a moment to initialize
+    await new Promise(r => setTimeout(r, 1500))
+  }
+
+  const s = sessions.get(userId)
+  if (!s?.socket) return res.status(500).json({ ok: false, error: 'session not started' })
+
+  try {
+    const code = await s.socket.requestPairingCode(phone.replace(/\D/g, ''))
+    res.json({ ok: true, code })
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 app.get('/health', (_, res) => res.json({ ok: true, sessions: sessions.size }))
 
 // Re-connect all known sessions on startup
