@@ -50,15 +50,35 @@ export async function getAdSetAds(adSetId: string, accessToken: string) {
 export function swapMediaInSpec(spec: Record<string, unknown>, asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }): Record<string, unknown> {
   const s = JSON.parse(JSON.stringify(spec))
   if (asset.type === 'image') {
-    if (s.link_data) { s.link_data.image_hash = asset.hash; delete s.link_data.video_id }
-    else if (s.video_data) {
-      s.link_data = { image_hash: asset.hash, link: s.video_data?.call_to_action?.value?.link, message: s.video_data?.message }
+    if (s.link_data) {
+      s.link_data.image_hash = asset.hash
+      delete s.link_data.video_id
+    } else if (s.video_data) {
+      // video → image: preserve CTA and link from original video spec
+      const vd = s.video_data as Record<string, unknown>
+      s.link_data = {
+        image_hash: asset.hash,
+        message: vd.message,
+        link: (vd.call_to_action as Record<string, unknown> | undefined)?.value
+          ? ((vd.call_to_action as Record<string, unknown>).value as Record<string, unknown>).link
+          : undefined,
+        ...(vd.call_to_action ? { call_to_action: vd.call_to_action } : {}),
+      }
       delete s.video_data
     }
   } else {
-    if (s.video_data) { s.video_data.video_id = asset.videoId }
-    else if (s.link_data) {
-      s.video_data = { video_id: asset.videoId, message: s.link_data?.message, call_to_action: { type: 'LEARN_MORE', value: { link: s.link_data?.link } } }
+    if (s.video_data) {
+      s.video_data.video_id = asset.videoId
+    } else if (s.link_data) {
+      // image → video: preserve CTA from original link_data spec
+      const ld = s.link_data as Record<string, unknown>
+      s.video_data = {
+        video_id: asset.videoId,
+        message: ld.message,
+        ...(ld.call_to_action
+          ? { call_to_action: ld.call_to_action }
+          : ld.link ? { call_to_action: { type: 'LEARN_MORE', value: { link: ld.link } } } : {}),
+      }
       delete s.link_data
     }
   }

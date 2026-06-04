@@ -294,11 +294,12 @@ export async function POST(request: Request) {
             // ensure page_id is present (Meta doesn't always return it in object_story_spec)
             if (!spec.page_id) spec.page_id = await getPageId()
           } else {
+            // No existing ads to clone — build minimal spec without CTA (avoids optimization goal mismatch)
             const pageId = await getPageId()
             if (asset.type === 'image') {
-              spec = { page_id: pageId, link_data: { image_hash: asset.hash, link: pending.destination_url ?? 'https://example.com', message: pending.primary_text ?? '' } }
+              spec = { page_id: pageId, link_data: { image_hash: asset.hash, ...(pending.destination_url ? { link: pending.destination_url } : {}), ...(pending.primary_text ? { message: pending.primary_text } : {}) } }
             } else {
-              spec = { page_id: pageId, video_data: { video_id: asset.videoId, message: pending.primary_text ?? '', call_to_action: { type: 'LEARN_MORE', value: { link: pending.destination_url ?? 'https://example.com' } } } }
+              spec = { page_id: pageId, video_data: { video_id: asset.videoId, ...(pending.primary_text ? { message: pending.primary_text } : {}), ...(pending.destination_url ? { call_to_action: { type: 'LEARN_MORE', value: { link: pending.destination_url } } } : {}) } }
             }
           }
 
