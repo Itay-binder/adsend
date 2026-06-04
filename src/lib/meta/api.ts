@@ -85,13 +85,17 @@ export function applyUtmToSpec(spec: Record<string, unknown>, campaignName: stri
 
 export async function createAdFromSpec(adAccountId: string, adSetId: string, name: string, spec: Record<string, unknown>, accessToken: string): Promise<string> {
   const accountId = normalizeAdAccountId(adAccountId)
+  console.error(`[createAdFromSpec] spec: ${JSON.stringify(spec)}`)
   const creativeRes = await fetch(`${META_API}/${accountId}/adcreatives`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, object_story_spec: spec, access_token: accessToken }),
   })
-  const creativeData = await creativeRes.json() as { id?: string; error?: { message: string; error_user_msg?: string } }
-  if (!creativeRes.ok || creativeData.error) throw new Error(creativeData.error?.error_user_msg ?? creativeData.error?.message ?? `Creative error ${creativeRes.status}`)
+  const creativeData = await creativeRes.json() as { id?: string; error?: { message: string; error_user_msg?: string; error_data?: unknown; error_subcode?: number } }
+  if (!creativeRes.ok || creativeData.error) {
+    console.error(`[createAdFromSpec] error: ${JSON.stringify(creativeData.error)}`)
+    throw new Error(creativeData.error?.error_user_msg ?? creativeData.error?.message ?? `Creative error ${creativeRes.status}`)
+  }
 
   const adRes = await fetch(`${META_API}/${accountId}/ads`, {
     method: 'POST',
