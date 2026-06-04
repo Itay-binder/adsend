@@ -318,7 +318,7 @@ export async function POST(request: Request) {
         } catch (e) {
           const msg = (e as Error).message ?? String(e)
           console.error(`[upload] adset ${adSetId}: ${msg}`)
-          errors.push(`${adSetId}: ${msg.slice(0, 100)}`)
+          errors.push(`שגיאה: ${msg}`)
         }
       }
 

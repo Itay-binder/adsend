@@ -113,8 +113,9 @@ export async function createAdFromSpec(adAccountId: string, adSetId: string, nam
   })
   const creativeData = await creativeRes.json() as { id?: string; error?: { message: string; error_user_msg?: string; error_data?: unknown; error_subcode?: number } }
   if (!creativeRes.ok || creativeData.error) {
-    console.error(`[createAdFromSpec] error: ${JSON.stringify(creativeData.error)}`)
-    throw new Error(creativeData.error?.error_user_msg ?? creativeData.error?.message ?? `Creative error ${creativeRes.status}`)
+    const fullErr = JSON.stringify(creativeData.error)
+    console.error(`[createAdFromSpec] error: ${fullErr}`)
+    throw new Error(fullErr)
   }
 
   const adRes = await fetch(`${META_API}/${accountId}/ads`, {
