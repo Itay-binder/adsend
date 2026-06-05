@@ -3,3 +3,22 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+<!-- BEGIN:adsend-rules -->
+# AdSend — כללי מדיה להעלאת קריאייטיבים
+
+## תמונות וסרטונים מ-WhatsApp
+
+- רזולוציה מינימלית: **1080px רוחב**
+- פחות מ-1080px → resize ל-1080px תוך שמירת aspect ratio
+- 1080px ומעלה → לא לגעת
+- resize מבוצע ב-**Baileys server** (לפני webhook) באמצעות Sharp
+- לא לדחות — תמיד לתקן אוטומטית
+
+## Whitelist מספרים מורשים
+
+- טבלה: `whatsapp_allowed_numbers (user_id, phone_number, label)`
+- ריקה = כולם מורשים
+- יש רשומות = רק הם מורשים; שאר ההודעות — התעלמות שקטה ללא תשובה
+- `from` הוא JID: `972526...@s.whatsapp.net` — להשוות לפי `includes(phone_number)`
+<!-- END:adsend-rules -->
