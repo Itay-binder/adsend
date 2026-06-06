@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package.json .
 RUN npm install --omit=dev
 
-COPY index.js .
+COPY index.js flow.js meta-api.js parse-intent.js ./
 
 RUN mkdir -p sessions
 
