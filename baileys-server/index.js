@@ -19,6 +19,15 @@ const logger = pino({ level: 'warn' })
 // In-memory session map: userId → { socket, qr, status, phone }
 const sessions = new Map()
 
+// Recent activity buffer for /debug/last (last 100 events)
+const debugLog = []
+function dlog(line) {
+  const stamped = `${new Date().toISOString()} ${line}`
+  debugLog.push(stamped)
+  if (debugLog.length > 100) debugLog.shift()
+  console.log(stamped)
+}
+
 // Recently processed message IDs (msgId → timestamp) to dedupe Baileys re-emits
 const processedMessages = new Map()
 const DEDUP_TTL_MS = 60_000
@@ -95,7 +104,7 @@ async function handleIncoming(userId, sock, msg) {
   const senderPn = msg.key.senderPn ?? msg.key.participantPn
   const identityJid = (replyTo?.endsWith('@lid') && senderPn) ? senderPn : replyTo
   const msgType = Object.keys(msg.message ?? {})[0]
-  console.log(`[${userId}] msg from replyTo=${replyTo} identityJid=${identityJid} type=${msgType}`)
+  dlog(`[${userId}] IN replyTo=${replyTo} identityJid=${identityJid} senderPn=${senderPn} type=${msgType}`)
 
   let text = null
   let mediaBuffer = null
@@ -152,12 +161,16 @@ async function handleIncoming(userId, sock, msg) {
   }
 
   try {
+    dlog(`[${userId}] FLOW start messageType=${mediaType ?? 'text'} textLen=${(text ?? '').length}`)
     await handleFlow({
       supabase, send,
       body: { userId, from: identityJid, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
     })
+    dlog(`[${userId}] FLOW end`)
   } catch (err) {
-    console.error(`[${userId}] flow failed:`, err.message, err.stack)
+    dlog(`[${userId}] FLOW ERROR: ${err.message}`)
+    console.error(err.stack)
+    try { await sock.sendMessage(replyTo, { text: `❌ שגיאה: ${err.message?.slice(0, 200)}` }) } catch {}
   }
 }
 
@@ -212,6 +225,8 @@ app.post('/session/:userId/pairing-code', async (req, res) => {
 })
 
 app.get('/health', (_, res) => res.json({ ok: true, sessions: sessions.size }))
+
+app.get('/debug/last', (_, res) => res.type('text/plain').send(debugLog.join('\n')))
 
 // Re-connect all known sessions on startup
 async function restoreActiveSessions() {
