@@ -71,7 +71,10 @@ async function startSession(userId) {
 }
 
 async function handleIncoming(userId, sock, msg) {
-  const from = msg.key.remoteJid
+  // Prefer real phone number over LID (privacy-mode JID). senderPn is the actual phone.
+  const remoteJid = msg.key.remoteJid
+  const senderPn = msg.key.senderPn ?? msg.key.participantPn
+  const from = (remoteJid?.endsWith('@lid') && senderPn) ? senderPn : remoteJid
   const msgType = Object.keys(msg.message ?? {})[0]
 
   let text = null
