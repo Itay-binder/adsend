@@ -56,14 +56,16 @@ export async function POST(request: Request) {
   // ── WHITELIST CHECK ────────────────────────────────────────────────────────
   const { data: allowedNumbers } = await supabase
     .from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
+  console.log(`[whitelist] userId=${userId} from=${from} count=${allowedNumbers?.length ?? 0} entries=${JSON.stringify(allowedNumbers)}`)
   if (allowedNumbers && allowedNumbers.length > 0) {
-    // Normalize: strip non-digits and leading zeros (handles 0526..., +972526..., 972526...)
     const norm = (s: string) => s.replace(/\D/g, '').replace(/^0+/, '')
     const fromNorm = norm(from as string)
     const isAllowed = allowedNumbers.some(n => {
       const stored = norm(n.phone_number)
+      console.log(`[whitelist] fromNorm=${fromNorm} stored=${stored} endsWith=${fromNorm.endsWith(stored)}`)
       return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
     })
+    console.log(`[whitelist] isAllowed=${isAllowed}`)
     if (!isAllowed) return NextResponse.json({ ok: true })
   }
 
