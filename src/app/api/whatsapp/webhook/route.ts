@@ -63,16 +63,24 @@ export async function POST(request: Request) {
 
   // ── UPLOAD LIMIT CHECK ─────────────────────────────────────────────────────
   if (messageType === 'image' || messageType === 'video') {
-    const { data: sub } = await supabase.from('subscriptions').select('status').eq('user_id', userId).single()
-    if (!sub || sub.status === 'expired' || sub.status === 'cancelled') {
-      return NextResponse.json({ ok: true }) // no active subscription
-    }
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-    const { count } = await supabase.from('uploads').select('*', { count: 'exact', head: true })
-      .eq('user_id', userId).gte('created_at', monthStart)
-    if ((count ?? 0) >= 100) {
-      await send(userId, from, '❌ הגעת למגבלת 100 העלאות החודש. לרכישת מנוי נוסף — כנס לadsend.vercel.app')
+    const { data: sub } = await supabase.from('subscriptions').select('status, current_period_end').eq('user_id', userId).single()
+    if (sub?.status === 'expired') {
+      await send(userId, from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
       return NextResponse.json({ ok: true })
+    }
+    const isCancelledExpired = sub?.status === 'cancelled' && sub.current_period_end && new Date(sub.current_period_end) < new Date()
+    if (isCancelledExpired) {
+      await send(userId, from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
+      return NextResponse.json({ ok: true })
+    }
+    if (sub && (sub.status === 'active' || sub.status === 'trial' || sub.status === 'cancelled')) {
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+      const { count } = await supabase.from('uploads').select('*', { count: 'exact', head: true })
+        .eq('user_id', userId).gte('created_at', monthStart)
+      if ((count ?? 0) >= 100) {
+        await send(userId, from, '❌ הגעת למגבלת 100 העלאות החודש. לרכישת מנוי נוסף — כנס לadsend.vercel.app')
+        return NextResponse.json({ ok: true })
+      }
     }
   }
 

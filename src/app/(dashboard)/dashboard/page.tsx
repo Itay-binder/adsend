@@ -5,18 +5,21 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
+const BAILEYS = process.env.BAILEYS_SERVER_URL ?? 'http://localhost:3001'
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const [waSession, metaConn, uploads] = await Promise.all([
+  const [waSession, metaConn, uploads, baileysStatus] = await Promise.all([
     supabase.from('whatsapp_sessions').select('*').eq('user_id', user.id).single(),
     supabase.from('meta_connections').select('*').eq('user_id', user.id).single(),
     supabase.from('uploads').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+    fetch(`${BAILEYS}/session/${user.id}/status`).then(r => r.json()).catch(() => null),
   ])
 
-  const waConnected = waSession.data?.status === 'connected'
+  const waConnected = baileysStatus?.status === 'connected' || waSession.data?.status === 'connected'
   const metaConnected = !!metaConn.data
 
   const uploadsThisWeek = (uploads.data ?? []).filter(u => {
