@@ -235,7 +235,11 @@ app.get('/debug/last', (_, res) => res.type('text/plain').send(debugLog.join('\n
 async function restoreActiveSessions() {
   try {
     const dirs = await readdir(SESSIONS_DIR, { withFileTypes: true })
-    const userIds = dirs.filter(d => d.isDirectory()).map(d => d.name)
+    // Filter out filesystem artifacts (lost+found on ext4) and only restore UUID-shaped dirs
+    const userIds = dirs
+      .filter(d => d.isDirectory())
+      .map(d => d.name)
+      .filter(name => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name))
     dlog(`startup: found ${userIds.length} session dir(s) on disk → restoring`)
     for (const userId of userIds) {
       try {
