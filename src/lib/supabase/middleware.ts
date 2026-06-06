@@ -28,7 +28,8 @@ export async function updateSession(request: NextRequest) {
   const isSubscribePage = path.startsWith('/subscribe')
   const isDashboard = path.startsWith('/dashboard') ||
     path.startsWith('/connect') ||
-    path.startsWith('/academy')
+    path.startsWith('/academy') ||
+    path.startsWith('/settings')
 
   if (!user && isDashboard) {
     return NextResponse.redirect(new URL('/login', request.url))
@@ -46,11 +47,13 @@ export async function updateSession(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
-    const isActive = sub?.status === 'active' && sub?.current_period_end
-      ? new Date(sub.current_period_end) > new Date()
-      : false
+    const now = new Date()
+    const periodEnd = sub?.current_period_end ? new Date(sub.current_period_end) : null
+    // active/trial = full access; cancelled = access until period end
+    const isActive = sub && ['active', 'trial'].includes(sub.status) && periodEnd && periodEnd > now
+    const isCancelledButValid = sub?.status === 'cancelled' && periodEnd && periodEnd > now
 
-    if (!isActive && !isSubscribePage) {
+    if (!isActive && !isCancelledButValid && !isSubscribePage) {
       return NextResponse.redirect(new URL('/subscribe', request.url))
     }
   }

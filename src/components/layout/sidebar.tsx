@@ -2,27 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MessageCircle, BookOpen, Phone } from 'lucide-react'
+import { LayoutDashboard, MessageCircle, BookOpen, Phone, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 
 const nav = [
   { href: '/dashboard', label: 'דשבורד', icon: LayoutDashboard },
   { href: '/connect/whatsapp', label: 'ווצאפ', icon: MessageCircle },
   { href: '/connect/meta', label: 'Meta Ads', icon: LayoutDashboard },
   { href: '/academy', label: 'אקדמיה', icon: BookOpen },
+  { href: '/settings', label: 'הגדרות', icon: Settings },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const supabase = createClient()
-
-  async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
 
   return (
     <aside className="w-56 shrink-0 h-screen sticky top-0 bg-zinc-950 border-l border-zinc-800 flex flex-col">
@@ -50,7 +42,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-zinc-800 flex flex-col gap-2">
+      <div className="p-3 border-t border-zinc-800">
         <a
           href="https://wa.me/972526660006?text=היי%2C%20אני%20צריך%20עזרה%20עם%20AdSend"
           target="_blank"
@@ -59,12 +51,6 @@ export function Sidebar() {
           <Phone className="w-4 h-4" />
           דבר עם נציג
         </a>
-        <button
-          onClick={signOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors w-full text-right"
-        >
-          יציאה
-        </button>
       </div>
     </aside>
   )
