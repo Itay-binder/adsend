@@ -66,7 +66,10 @@ export async function POST(request: Request) {
       return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
     })
     console.log(`[whitelist] from=${from} fromNorm=${fromNorm} isAllowed=${isAllowed}`)
-    if (!isAllowed) return NextResponse.json({ ok: true })
+    if (!isAllowed) {
+      await send(userId, from, `🔒 DEBUG: from="${from}" | fromNorm="${fromNorm}" | stored="${allowedNumbers.map(n => norm(n.phone_number)).join(',')}"`)
+      return NextResponse.json({ ok: true })
+    }
   }
 
   // ── UPLOAD LIMIT CHECK ─────────────────────────────────────────────────────
