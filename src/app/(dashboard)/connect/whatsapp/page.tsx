@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode } from 'lucide-react'
+import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode, Plus, Trash2, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 
 type Status = 'disconnected' | 'connecting' | 'connected' | 'error'
 type Mode = 'qr' | 'phone'
+type AllowedNumber = { phone_number: string; label: string | null; created_at: string }
 
 export default function ConnectWhatsAppPage() {
   const [status, setStatus] = useState<Status>('disconnected')
@@ -17,6 +18,12 @@ export default function ConnectWhatsAppPage() {
   const [pairingCode, setPairingCode] = useState<string | null>(null)
   const [phoneLoading, setPhoneLoading] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
+
+  const [allowedNumbers, setAllowedNumbers] = useState<AllowedNumber[]>([])
+  const [newPhone, setNewPhone] = useState('')
+  const [newLabel, setNewLabel] = useState('')
+  const [addLoading, setAddLoading] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   const fetchQR = useCallback(async () => {
     setStatus('connecting')
@@ -41,11 +48,20 @@ export default function ConnectWhatsAppPage() {
     }
   }, [])
 
+  const fetchAllowedNumbers = useCallback(async () => {
+    const res = await fetch('/api/whatsapp/allowed-numbers')
+    const data = await res.json()
+    setAllowedNumbers(data.numbers ?? [])
+  }, [])
+
   useEffect(() => {
     if (mode === 'qr') fetchQR()
   }, [fetchQR, mode])
 
-  // Poll while connecting
+  useEffect(() => {
+    fetchAllowedNumbers()
+  }, [fetchAllowedNumbers])
+
   useEffect(() => {
     if (status !== 'connecting') return
     const interval = setInterval(async () => {
@@ -91,11 +107,49 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
-  return (
-    <div className="p-8 max-w-md">
-      <h2 className="text-2xl font-bold text-white mb-2">חיבור WhatsApp</h2>
-      <p className="text-zinc-400 mb-8">חבר את הווצאפ שלך — תשלח קריאייטיבים ממנו ישירות ל-Meta Ads</p>
+  async function addNumber() {
+    const digits = newPhone.replace(/\D/g, '')
+    if (digits.length < 9) { setAddError('מספר לא תקין'); return }
+    setAddLoading(true)
+    setAddError(null)
+    try {
+      const res = await fetch('/api/whatsapp/allowed-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone_number: digits, label: newLabel }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setNewPhone('')
+        setNewLabel('')
+        await fetchAllowedNumbers()
+      } else {
+        setAddError(data.error ?? 'שגיאה')
+      }
+    } catch {
+      setAddError('שגיאה בשמירה')
+    } finally {
+      setAddLoading(false)
+    }
+  }
 
+  async function removeNumber(phone_number: string) {
+    await fetch('/api/whatsapp/allowed-numbers', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number }),
+    })
+    await fetchAllowedNumbers()
+  }
+
+  return (
+    <div className="p-8 max-w-lg space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">חיבור WhatsApp</h2>
+        <p className="text-zinc-400">חבר את הווצאפ שלך — תשלח קריאייטיבים ממנו ישירות ל-Meta Ads</p>
+      </div>
+
+      {/* ── Connection Card ── */}
       {status === 'connected' ? (
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-8 text-center">
           <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
@@ -114,7 +168,6 @@ export default function ConnectWhatsAppPage() {
         </div>
       ) : (
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-2xl p-6">
-          {/* Mode toggle */}
           <div className="flex gap-2 mb-6">
             <button
               onClick={() => { setMode('qr'); setPairingCode(null); setPhoneError(null) }}
@@ -168,7 +221,6 @@ export default function ConnectWhatsAppPage() {
                   </div>
                 ))}
               </div>
-
               {!pairingCode ? (
                 <div className="flex flex-col gap-3">
                   <input
@@ -180,11 +232,7 @@ export default function ConnectWhatsAppPage() {
                     dir="ltr"
                   />
                   {phoneError && <p className="text-red-400 text-xs">{phoneError}</p>}
-                  <Button
-                    onClick={requestPairingCode}
-                    disabled={phoneLoading || !phoneInput}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white"
-                  >
+                  <Button onClick={requestPairingCode} disabled={phoneLoading || !phoneInput} className="bg-emerald-600 hover:bg-emerald-500 text-white">
                     {phoneLoading ? <RefreshCw className="w-4 h-4 animate-spin mx-auto" /> : 'קבל קוד חיבור'}
                   </Button>
                 </div>
@@ -206,6 +254,61 @@ export default function ConnectWhatsAppPage() {
           )}
         </div>
       )}
+
+      {/* ── Whitelist Card ── */}
+      <div className="bg-zinc-800/50 border border-zinc-700 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Shield className="w-4 h-4 text-zinc-400" />
+          <h3 className="text-white font-semibold text-sm">מספרים מורשים</h3>
+        </div>
+        <p className="text-zinc-500 text-xs mb-4">
+          {allowedNumbers.length === 0
+            ? 'כרגע כולם מורשים לשלוח. הוסף מספרים כדי להגביל גישה.'
+            : `רק ${allowedNumbers.length} מספר${allowedNumbers.length !== 1 ? 'ים' : ''} מורשים לשלוח.`}
+        </p>
+
+        {allowedNumbers.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {allowedNumbers.map(n => (
+              <div key={n.phone_number} className="flex items-center justify-between bg-zinc-900 rounded-lg px-3 py-2">
+                <div>
+                  <span className="text-white text-sm font-mono">+{n.phone_number}</span>
+                  {n.label && <span className="text-zinc-500 text-xs mr-2">— {n.label}</span>}
+                </div>
+                <button onClick={() => removeNumber(n.phone_number)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <input
+            type="tel"
+            placeholder="מספר (972526...)"
+            value={newPhone}
+            onChange={e => setNewPhone(e.target.value)}
+            className="flex-1 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500 text-left"
+            dir="ltr"
+          />
+          <input
+            type="text"
+            placeholder="תווית (אופציונלי)"
+            value={newLabel}
+            onChange={e => setNewLabel(e.target.value)}
+            className="w-32 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500"
+          />
+          <button
+            onClick={addNumber}
+            disabled={addLoading || !newPhone}
+            className="flex items-center gap-1 px-3 py-2 rounded-md bg-zinc-700 hover:bg-zinc-600 text-white text-sm disabled:opacity-50 transition-colors"
+          >
+            {addLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          </button>
+        </div>
+        {addError && <p className="text-red-400 text-xs mt-2">{addError}</p>}
+      </div>
     </div>
   )
 }

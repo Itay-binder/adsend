@@ -53,6 +53,29 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { userId, from, messageType, text, mediaBuffer, mediaType } = body
 
+  // ── WHITELIST CHECK ────────────────────────────────────────────────────────
+  const { data: allowedNumbers } = await supabase
+    .from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
+  if (allowedNumbers && allowedNumbers.length > 0) {
+    const isAllowed = allowedNumbers.some(n => (from as string).includes(n.phone_number))
+    if (!isAllowed) return NextResponse.json({ ok: true })
+  }
+
+  // ── UPLOAD LIMIT CHECK ─────────────────────────────────────────────────────
+  if (messageType === 'image' || messageType === 'video') {
+    const { data: sub } = await supabase.from('subscriptions').select('status').eq('user_id', userId).single()
+    if (!sub || sub.status === 'expired' || sub.status === 'cancelled') {
+      return NextResponse.json({ ok: true }) // no active subscription
+    }
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+    const { count } = await supabase.from('uploads').select('*', { count: 'exact', head: true })
+      .eq('user_id', userId).gte('created_at', monthStart)
+    if ((count ?? 0) >= 100) {
+      await send(userId, from, '❌ הגעת למגבלת 100 העלאות החודש. לרכישת מנוי נוסף — כנס לadsend.vercel.app')
+      return NextResponse.json({ ok: true })
+    }
+  }
+
   const { data: metaConn } = await supabase.from('meta_connections').select('access_token').eq('user_id', userId).single()
   if (!metaConn) {
     await send(userId, from, '❌ לא מחובר למטא. כנס ל-adsend.vercel.app ותחבר חשבון.')

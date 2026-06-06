@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
 import { readdir, mkdir } from 'fs/promises'
 import path from 'path'
+import sharp from 'sharp'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -87,12 +88,26 @@ async function handleIncoming(userId, sock, msg) {
         msg, 'buffer', {},
         { logger, reuploadRequest: sock.updateMediaMessage }
       )
-      mediaBuffer = buffer.toString('base64')
+      let processedBuffer = buffer
       mediaType = msgType === 'imageMessage' ? 'image' : 'video'
       text = (msgType === 'imageMessage'
         ? msg.message?.imageMessage?.caption
         : msg.message?.videoMessage?.caption) ?? ''
-      console.log(`[${userId}] ${mediaType} downloaded, size=${buffer.byteLength}B`)
+
+      if (mediaType === 'image') {
+        try {
+          const meta = await sharp(buffer).metadata()
+          if (meta.width && meta.width < 500) {
+            processedBuffer = await sharp(buffer).resize(1080, null, { fit: 'inside', withoutEnlargement: false }).toBuffer()
+            console.log(`[${userId}] image resized from ${meta.width}px to 1080px`)
+          }
+        } catch (e) {
+          console.warn(`[${userId}] resize failed, using original:`, e.message)
+        }
+      }
+
+      mediaBuffer = processedBuffer.toString('base64')
+      console.log(`[${userId}] ${mediaType} ready, size=${processedBuffer.byteLength}B`)
     } else {
       return
     }
