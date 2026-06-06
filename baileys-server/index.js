@@ -89,11 +89,13 @@ async function startSession(userId) {
 }
 
 async function handleIncoming(userId, sock, msg) {
-  // Prefer real phone number over LID (privacy-mode JID). senderPn is the actual phone.
-  const remoteJid = msg.key.remoteJid
+  // replyTo = original JID from WhatsApp (works for both @lid and @s.whatsapp.net)
+  // identityJid = real phone number JID for whitelist comparison (LID hides real phone)
+  const replyTo = msg.key.remoteJid
   const senderPn = msg.key.senderPn ?? msg.key.participantPn
-  const from = (remoteJid?.endsWith('@lid') && senderPn) ? senderPn : remoteJid
+  const identityJid = (replyTo?.endsWith('@lid') && senderPn) ? senderPn : replyTo
   const msgType = Object.keys(msg.message ?? {})[0]
+  console.log(`[${userId}] msg from replyTo=${replyTo} identityJid=${identityJid} type=${msgType}`)
 
   let text = null
   let mediaBuffer = null
@@ -134,27 +136,28 @@ async function handleIncoming(userId, sock, msg) {
     }
   } catch (err) {
     console.error(`[${userId}] handleIncoming error:`, err.message)
-    // Try to notify user about the error
     try {
       const s = sessions.get(userId)
       if (s?.socket && s.status === 'connected') {
-        await s.socket.sendMessage(from, { text: '❌ שגיאה בהורדת המדיה. נסה שוב.' })
+        await s.socket.sendMessage(replyTo, { text: '❌ שגיאה בהורדת המדיה. נסה שוב.' })
       }
     } catch {}
     return
   }
 
+  // send always replies to the original JID (LID or s.whatsapp.net) — Baileys handles both
+  const send = async (_unused, body) => {
+    try { await sock.sendMessage(replyTo, { text: body }) }
+    catch (e) { console.error(`[${userId}] send failed:`, e.message) }
+  }
+
   try {
-    const send = async (to, body) => {
-      try { await sock.sendMessage(to, { text: body }) }
-      catch (e) { console.error(`[${userId}] send failed:`, e.message) }
-    }
     await handleFlow({
       supabase, send,
-      body: { userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
+      body: { userId, from: identityJid, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
     })
   } catch (err) {
-    console.error(`[${userId}] flow failed:`, err.message)
+    console.error(`[${userId}] flow failed:`, err.message, err.stack)
   }
 }
 
