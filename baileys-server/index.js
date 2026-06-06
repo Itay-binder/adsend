@@ -4,7 +4,7 @@ import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaile
 import QRCode from 'qrcode'
 import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
-import { mkdir } from 'fs/promises'
+import { mkdir, readdir } from 'fs/promises'
 import path from 'path'
 import sharp from 'sharp'
 import { handleFlow } from './flow.js'
@@ -229,13 +229,24 @@ app.get('/health', (_, res) => res.json({ ok: true, sessions: sessions.size }))
 
 app.get('/debug/last', (_, res) => res.type('text/plain').send(debugLog.join('\n')))
 
-// Re-connect all known sessions on startup
+// Re-connect all sessions whose auth files exist in the persistent volume.
+// Don't rely on Supabase status — the previous container might have died mid-session
+// and never marked itself 'disconnected' (or marked it and we want to restore anyway).
 async function restoreActiveSessions() {
-  const { data } = await supabase.from('whatsapp_sessions').select('user_id').eq('status', 'connected')
-  if (data) {
-    for (const row of data) {
-      await startSession(row.user_id)
+  try {
+    const dirs = await readdir(SESSIONS_DIR, { withFileTypes: true })
+    const userIds = dirs.filter(d => d.isDirectory()).map(d => d.name)
+    dlog(`startup: found ${userIds.length} session dir(s) on disk → restoring`)
+    for (const userId of userIds) {
+      try {
+        await startSession(userId)
+        dlog(`startup: restored ${userId}`)
+      } catch (e) {
+        dlog(`startup: failed to restore ${userId}: ${e.message}`)
+      }
     }
+  } catch (e) {
+    dlog(`startup: readdir failed: ${e.message}`)
   }
 }
 
