@@ -58,14 +58,14 @@ export async function POST(request: Request) {
     .from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
   console.log(`[whitelist] userId=${userId} from=${from} count=${allowedNumbers?.length ?? 0} entries=${JSON.stringify(allowedNumbers)}`)
   if (allowedNumbers && allowedNumbers.length > 0) {
-    const norm = (s: string) => s.replace(/\D/g, '').replace(/^0+/, '')
+    // Strip Baileys device suffix (e.g. 972526660006:17@s.whatsapp.net → 972526660006)
+    const norm = (s: string) => s.split(':')[0].split('@')[0].replace(/\D/g, '').replace(/^0+/, '')
     const fromNorm = norm(from as string)
     const isAllowed = allowedNumbers.some(n => {
       const stored = norm(n.phone_number)
-      console.log(`[whitelist] fromNorm=${fromNorm} stored=${stored} endsWith=${fromNorm.endsWith(stored)}`)
       return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
     })
-    console.log(`[whitelist] isAllowed=${isAllowed}`)
+    console.log(`[whitelist] from=${from} fromNorm=${fromNorm} isAllowed=${isAllowed}`)
     if (!isAllowed) return NextResponse.json({ ok: true })
   }
 
