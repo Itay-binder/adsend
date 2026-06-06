@@ -53,11 +53,23 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { userId, from, messageType, text, mediaBuffer, mediaType } = body
 
+  // Parallel: fetch everything we'll need up front
+  const [
+    { data: allowedNumbers },
+    { data: sub },
+    { data: metaConn },
+    { data: adAccounts },
+    { data: pending },
+  ] = await Promise.all([
+    supabase.from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId),
+    supabase.from('subscriptions').select('status, current_period_end').eq('user_id', userId).maybeSingle(),
+    supabase.from('meta_connections').select('access_token').eq('user_id', userId).maybeSingle(),
+    supabase.from('ad_accounts').select('*').eq('user_id', userId).eq('is_active', true),
+    supabase.from('whatsapp_pending').select('*').eq('user_id', userId).maybeSingle(),
+  ])
+
   // ── WHITELIST CHECK ────────────────────────────────────────────────────────
-  const { data: allowedNumbers } = await supabase
-    .from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
   if (allowedNumbers && allowedNumbers.length > 0) {
-    // Normalize: strip suffix (:device, @server) then non-digits and leading zeros
     const norm = (s: string) => s.split(':')[0].split('@')[0].replace(/\D/g, '').replace(/^0+/, '')
     const fromNorm = norm(from as string)
     const isAllowed = allowedNumbers.some(n => {
@@ -69,7 +81,6 @@ export async function POST(request: Request) {
 
   // ── UPLOAD LIMIT CHECK ─────────────────────────────────────────────────────
   if (messageType === 'image' || messageType === 'video') {
-    const { data: sub } = await supabase.from('subscriptions').select('status, current_period_end').eq('user_id', userId).single()
     if (sub?.status === 'expired') {
       await send(userId, from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
       return NextResponse.json({ ok: true })
@@ -90,13 +101,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data: metaConn } = await supabase.from('meta_connections').select('access_token').eq('user_id', userId).single()
   if (!metaConn) {
     await send(userId, from, '❌ לא מחובר למטא. כנס ל-adsend.vercel.app ותחבר חשבון.')
     return NextResponse.json({ ok: true })
   }
 
-  const { data: adAccounts } = await supabase.from('ad_accounts').select('*').eq('user_id', userId).eq('is_active', true)
   if (!adAccounts?.length) {
     await send(userId, from, '❌ לא נמצאו חשבונות מודעות. כנס לאפליקציה וחבר חשבון.')
     return NextResponse.json({ ok: true })
@@ -105,8 +114,6 @@ export async function POST(request: Request) {
   const adAccount = adAccounts[0]
   const token = metaConn.access_token
   const t = (text ?? '').trim()
-
-  const { data: pending } = await supabase.from('whatsapp_pending').select('*').eq('user_id', userId).single()
 
   // ── ACTIVATE ───────────────────────────────────────────────────────────────
   if (pending?.step === 'await_activation' && (t === 'מאשר' || t === 'כן' || t === 'yes')) {

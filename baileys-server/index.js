@@ -20,6 +20,21 @@ const logger = pino({ level: 'warn' })
 // In-memory session map: userId → { socket, qr, status, phone }
 const sessions = new Map()
 
+// Recently processed message IDs (msgId → timestamp) to dedupe Baileys re-emits
+const processedMessages = new Map()
+const DEDUP_TTL_MS = 60_000
+
+function isDuplicate(msgId) {
+  if (!msgId) return false
+  const now = Date.now()
+  for (const [id, ts] of processedMessages) {
+    if (now - ts > DEDUP_TTL_MS) processedMessages.delete(id)
+  }
+  if (processedMessages.has(msgId)) return true
+  processedMessages.set(msgId, now)
+  return false
+}
+
 await mkdir(SESSIONS_DIR, { recursive: true })
 
 async function startSession(userId) {
@@ -65,6 +80,10 @@ async function startSession(userId) {
     if (type !== 'notify') return
     for (const msg of messages) {
       if (msg.key.fromMe) continue
+      if (isDuplicate(msg.key.id)) {
+        console.log(`[${userId}] dedup: ignoring duplicate msgId=${msg.key.id}`)
+        continue
+      }
       await handleIncoming(userId, sock, msg)
     }
   })
