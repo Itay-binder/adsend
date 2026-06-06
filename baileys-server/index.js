@@ -85,13 +85,14 @@ async function startSession(userId) {
   })
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return
+    dlog(`[${userId}] messages.upsert type=${type} count=${messages.length}`)
+    if (type !== 'notify') {
+      dlog(`[${userId}] skip: type=${type} (not notify)`)
+      return
+    }
     for (const msg of messages) {
-      if (msg.key.fromMe) continue
-      if (isDuplicate(msg.key.id)) {
-        console.log(`[${userId}] dedup: ignoring duplicate msgId=${msg.key.id}`)
-        continue
-      }
+      if (msg.key.fromMe) { dlog(`[${userId}] skip: fromMe msgId=${msg.key.id}`); continue }
+      if (isDuplicate(msg.key.id)) { dlog(`[${userId}] skip: dedup msgId=${msg.key.id}`); continue }
       await handleIncoming(userId, sock, msg)
     }
   })
