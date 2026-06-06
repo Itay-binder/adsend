@@ -1,38 +1,15 @@
-import { NextResponse } from 'next/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
-import { parseAdIntent } from '@/lib/ai/parse-intent'
+import { parseAdIntent } from './parse-intent.js'
 import {
   getActiveCampaigns, getAdSets,
   uploadImageCreative, uploadVideoCreative,
-  buildAndCreateAd, activateAd
-} from '@/lib/meta/api'
+  buildAndCreateAd, activateAd,
+} from './meta-api.js'
 
-function getSupabase() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
-const BAILEYS_SERVER = process.env.BAILEYS_SERVER_URL ?? 'http://localhost:3001'
-
-function validateSecret(request: Request): boolean {
-  return request.headers.get('x-webhook-secret') === process.env.WHATSAPP_WEBHOOK_SECRET
-}
-
-async function send(userId: string, phone: string, text: string) {
-  await fetch(`${BAILEYS_SERVER}/session/${userId}/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to: phone, text }),
-  }).catch(() => {})
-}
-
-function buildCampaignMenu(campaigns: { id: string; name: string }[]) {
+function buildCampaignMenu(campaigns) {
   return campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`).join('\n')
 }
 
-function buildAdSetMenu(adsets: { id: string; name: string; status: string }[]) {
+function buildAdSetMenu(adsets) {
   const lines = adsets.map((a, i) => `${i + 1}. ${a.status === 'ACTIVE' ? '🟢' : '⚫'} ${a.name}`)
   lines.push(`${adsets.length + 1}. כל הסדרות הפעילות`)
   lines.push(`${adsets.length + 2}. כל הסדרות (כולל כבויות)`)
@@ -46,11 +23,20 @@ function assetName() {
   return `העלאה מווצאפ | ${d} | ${t}`
 }
 
-export async function POST(request: Request) {
-  if (!validateSecret(request)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+function normPhone(s) {
+  return (s ?? '').split(':')[0].split('@')[0].replace(/\D/g, '').replace(/^0+/, '')
+}
 
-  const supabase = getSupabase()
-  const body = await request.json()
+/**
+ * Main flow handler — replaces the old POST /api/whatsapp/webhook route.
+ * Runs in-process on the Baileys server, called directly from handleIncoming.
+ *
+ * @param {object} ctx
+ * @param {import('@supabase/supabase-js').SupabaseClient} ctx.supabase
+ * @param {(to: string, text: string) => Promise<void>} ctx.send
+ * @param {object} ctx.body — { userId, from, messageType, text, mediaBuffer, mediaType }
+ */
+export async function handleFlow({ supabase, send, body }) {
   const { userId, from, messageType, text, mediaBuffer, mediaType } = body
 
   // Parallel: fetch everything we'll need up front
@@ -68,47 +54,45 @@ export async function POST(request: Request) {
     supabase.from('whatsapp_pending').select('*').eq('user_id', userId).maybeSingle(),
   ])
 
-  // ── WHITELIST CHECK ────────────────────────────────────────────────────────
+  // ── WHITELIST ──────────────────────────────────────────────────────────────
   if (allowedNumbers && allowedNumbers.length > 0) {
-    const norm = (s: string) => s.split(':')[0].split('@')[0].replace(/\D/g, '').replace(/^0+/, '')
-    const fromNorm = norm(from as string)
+    const fromNorm = normPhone(from)
     const isAllowed = allowedNumbers.some(n => {
-      const stored = norm(n.phone_number)
+      const stored = normPhone(n.phone_number)
       return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
     })
-    if (!isAllowed) return NextResponse.json({ ok: true })
+    if (!isAllowed) return
   }
 
-  // ── UPLOAD LIMIT CHECK ─────────────────────────────────────────────────────
+  // ── UPLOAD LIMIT ───────────────────────────────────────────────────────────
   if (messageType === 'image' || messageType === 'video') {
     if (sub?.status === 'expired') {
-      await send(userId, from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
-      return NextResponse.json({ ok: true })
+      await send(from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
+      return
     }
     const isCancelledExpired = sub?.status === 'cancelled' && sub.current_period_end && new Date(sub.current_period_end) < new Date()
     if (isCancelledExpired) {
-      await send(userId, from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
-      return NextResponse.json({ ok: true })
+      await send(from, '❌ המנוי שלך פג תוקף. כנס ל-adsend.vercel.app לחידוש.')
+      return
     }
-    if (sub && (sub.status === 'active' || sub.status === 'trial' || sub.status === 'cancelled')) {
+    if (sub && ['active', 'trial', 'cancelled'].includes(sub.status)) {
       const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
       const { count } = await supabase.from('uploads').select('*', { count: 'exact', head: true })
         .eq('user_id', userId).gte('created_at', monthStart)
       if ((count ?? 0) >= 100) {
-        await send(userId, from, '❌ הגעת למגבלת 100 העלאות החודש. לרכישת מנוי נוסף — כנס לadsend.vercel.app')
-        return NextResponse.json({ ok: true })
+        await send(from, '❌ הגעת למגבלת 100 העלאות החודש. לרכישת מנוי נוסף — כנס לadsend.vercel.app')
+        return
       }
     }
   }
 
   if (!metaConn) {
-    await send(userId, from, '❌ לא מחובר למטא. כנס ל-adsend.vercel.app ותחבר חשבון.')
-    return NextResponse.json({ ok: true })
+    await send(from, '❌ לא מחובר למטא. כנס ל-adsend.vercel.app ותחבר חשבון.')
+    return
   }
-
   if (!adAccounts?.length) {
-    await send(userId, from, '❌ לא נמצאו חשבונות מודעות. כנס לאפליקציה וחבר חשבון.')
-    return NextResponse.json({ ok: true })
+    await send(from, '❌ לא נמצאו חשבונות מודעות. כנס לאפליקציה וחבר חשבון.')
+    return
   }
 
   const adAccount = adAccounts[0]
@@ -117,25 +101,25 @@ export async function POST(request: Request) {
 
   // ── ACTIVATE ───────────────────────────────────────────────────────────────
   if (pending?.step === 'await_activation' && (t === 'מאשר' || t === 'כן' || t === 'yes')) {
-    const adIds: string[] = JSON.parse(pending.campaigns ?? '[]')
-    const results: string[] = []
-    const errors: string[] = []
+    const adIds = JSON.parse(pending.campaigns ?? '[]')
+    const results = []
+    const errors = []
     for (const adId of adIds) {
       try { await activateAd(adId, token); results.push(adId) }
-      catch (e) { errors.push((e as Error).message.slice(0, 80)) }
+      catch (e) { errors.push(e.message.slice(0, 80)) }
     }
     await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
     let msg = results.length ? `✅ ${results.length} מודעות הופעלו!` : '⚠️ לא הצלחתי להפעיל.'
     if (errors.length) msg += `\n\nשגיאות:\n${errors.map(e => `• ${e}`).join('\n')}`
-    await send(userId, from, msg)
-    return NextResponse.json({ ok: true })
+    await send(from, msg)
+    return
   }
 
   // ── CANCEL ─────────────────────────────────────────────────────────────────
   if (pending && (t === 'ביטול' || t.toLowerCase() === 'cancel')) {
     await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-    await send(userId, from, '↩️ בוטל.')
-    return NextResponse.json({ ok: true })
+    await send(from, '↩️ בוטל.')
+    return
   }
 
   // ── NEW MEDIA ──────────────────────────────────────────────────────────────
@@ -144,23 +128,23 @@ export async function POST(request: Request) {
     try {
       campaigns = await getActiveCampaigns(adAccount.account_id, token)
       if (!campaigns.length) {
-        await send(userId, from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
-        return NextResponse.json({ ok: true })
+        await send(from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
+        return
       }
     } catch (e) {
-      await send(userId, from, `❌ שגיאה בטעינת קמפיינים: ${(e as Error).message.slice(0, 80)}`)
-      return NextResponse.json({ ok: true })
+      await send(from, `❌ שגיאה בטעינת קמפיינים: ${e.message.slice(0, 80)}`)
+      return
     }
 
     const intent = await parseAdIntent(t, campaigns.map(c => ({ id: c.id, name: c.name, adsets: [] })))
     const matchedCampaign = intent.campaign_hint
-      ? campaigns.find(c => c.name.toLowerCase().includes(intent.campaign_hint!.toLowerCase()))
+      ? campaigns.find(c => c.name.toLowerCase().includes(intent.campaign_hint.toLowerCase()))
       : null
 
     if (matchedCampaign) {
       let adsets
       try { adsets = await getAdSets(matchedCampaign.id, token) }
-      catch (e) { await send(userId, from, `❌ שגיאה: ${(e as Error).message.slice(0, 80)}`); return NextResponse.json({ ok: true }) }
+      catch (e) { await send(from, `❌ שגיאה: ${e.message.slice(0, 80)}`); return }
 
       await supabase.from('whatsapp_pending').upsert({
         user_id: userId, media_base64: mediaBuffer, media_type: mediaType,
@@ -170,7 +154,7 @@ export async function POST(request: Request) {
       }, { onConflict: 'user_id' })
 
       const type = mediaType === 'image' ? 'תמונה' : 'סרטון'
-      await send(userId, from, `קיבלתי ${type}.\nקמפיין: 🟢 ${matchedCampaign.name}\n\nלאיזה סדרת מודעות?\n\n${buildAdSetMenu(adsets)}\n\nשלח מספר או "ביטול"`)
+      await send(from, `קיבלתי ${type}.\nקמפיין: 🟢 ${matchedCampaign.name}\n\nלאיזה סדרת מודעות?\n\n${buildAdSetMenu(adsets)}\n\nשלח מספר או "ביטול"`)
     } else {
       await supabase.from('whatsapp_pending').upsert({
         user_id: userId, media_base64: mediaBuffer, media_type: mediaType,
@@ -179,46 +163,43 @@ export async function POST(request: Request) {
       }, { onConflict: 'user_id' })
 
       const type = mediaType === 'image' ? 'תמונה' : 'סרטון'
-      await send(userId, from, `קיבלתי ${type}.\n\n${buildCampaignMenu(campaigns)}\n\nלאיזה קמפיין? (שלח מספר או "ביטול")`)
+      await send(from, `קיבלתי ${type}.\n\n${buildCampaignMenu(campaigns)}\n\nלאיזה קמפיין? (שלח מספר או "ביטול")`)
     }
-    return NextResponse.json({ ok: true })
+    return
   }
 
   // ── FLOW STEPS ─────────────────────────────────────────────────────────────
   if (!pending) {
-    await send(userId, from, '👋 שלח תמונה או סרטון להעלאה ל-Meta Ads')
-    return NextResponse.json({ ok: true })
+    await send(from, '👋 שלח תמונה או סרטון להעלאה ל-Meta Ads')
+    return
   }
 
-  // campaign selection
   if (pending.step === 'await_campaign') {
-    const campaigns: { id: string; name: string }[] = JSON.parse(pending.campaigns ?? '[]')
+    const campaigns = JSON.parse(pending.campaigns ?? '[]')
     const idx = parseInt(t) - 1
     const chosen = (!isNaN(idx) && idx >= 0 && idx < campaigns.length)
       ? campaigns[idx]
       : campaigns.find(c => c.name.toLowerCase().includes(t.toLowerCase()))
     if (!chosen) {
-      await send(userId, from, `❓ לא הבנתי. שלח מספר בין 1 ל-${campaigns.length}:\n\n${buildCampaignMenu(campaigns)}`)
-      return NextResponse.json({ ok: true })
+      await send(from, `❓ לא הבנתי. שלח מספר בין 1 ל-${campaigns.length}:\n\n${buildCampaignMenu(campaigns)}`)
+      return
     }
     let adsets
     try { adsets = await getAdSets(chosen.id, token) }
-    catch (e) { await send(userId, from, `❌ שגיאה: ${(e as Error).message.slice(0, 80)}`); return NextResponse.json({ ok: true }) }
+    catch (e) { await send(from, `❌ שגיאה: ${e.message.slice(0, 80)}`); return }
     await supabase.from('whatsapp_pending').update({
-      step: 'await_adset', campaign_id: chosen.id, campaign_name: chosen.name, adsets: JSON.stringify(adsets)
+      step: 'await_adset', campaign_id: chosen.id, campaign_name: chosen.name, adsets: JSON.stringify(adsets),
     }).eq('user_id', userId)
-    await send(userId, from, `קמפיין: 🟢 ${chosen.name}\n\nלאיזה סדרת מודעות?\n\n${buildAdSetMenu(adsets)}\n\nשלח מספר או "ביטול"`)
-    return NextResponse.json({ ok: true })
+    await send(from, `קמפיין: 🟢 ${chosen.name}\n\nלאיזה סדרת מודעות?\n\n${buildAdSetMenu(adsets)}\n\nשלח מספר או "ביטול"`)
+    return
   }
 
-  // adset selection
   if (pending.step === 'await_adset') {
-    const adsets: { id: string; name: string; status: string }[] = JSON.parse(pending.adsets ?? '[]')
+    const adsets = JSON.parse(pending.adsets ?? '[]')
     const allActiveIdx = adsets.length + 1
     const allIdx = adsets.length + 2
     const num = parseInt(t)
-    let selectedIds: string[]
-    let label: string
+    let selectedIds, label
 
     if (num === allActiveIdx) {
       selectedIds = adsets.filter(a => a.status === 'ACTIVE').map(a => a.id)
@@ -232,31 +213,30 @@ export async function POST(request: Request) {
     } else {
       const found = adsets.find(a => a.name.toLowerCase().includes(t.toLowerCase()))
       if (!found) {
-        await send(userId, from, `❓ לא הבנתי. שלח מספר בין 1 ל-${allIdx}:\n\n${buildAdSetMenu(adsets)}`)
-        return NextResponse.json({ ok: true })
+        await send(from, `❓ לא הבנתי. שלח מספר בין 1 ל-${allIdx}:\n\n${buildAdSetMenu(adsets)}`)
+        return
       }
       selectedIds = [found.id]
       label = found.name
     }
 
     if (!selectedIds.length) {
-      await send(userId, from, '⚠️ לא נמצאו סדרות בבחירה זו. נסה שוב.')
-      return NextResponse.json({ ok: true })
+      await send(from, '⚠️ לא נמצאו סדרות בבחירה זו. נסה שוב.')
+      return
     }
 
     await supabase.from('whatsapp_pending').update({
       step: 'await_extra', adset_id: selectedIds.join(','), adset_name: label,
     }).eq('user_id', userId)
-    await send(userId, from, `סדרה: ${label}\n\nיש הערות? (לינק אחר, טקסט)\nאם לא — שלח "לא"`)
-    return NextResponse.json({ ok: true })
+    await send(from, `סדרה: ${label}\n\nיש הערות? (לינק אחר, טקסט)\nאם לא — שלח "לא"`)
+    return
   }
 
-  // extra notes
   if (pending.step === 'await_extra') {
     const extra = (t === 'לא' || t === 'no') ? '' : t
     const urlMatch = extra.match(/https?:\/\/\S+/)
     const overrideUrl = urlMatch ? urlMatch[0] : null
-    const overrideCopy = extra ? extra.replace(/https?:\/\/\S+/g, '').trim() || null : null
+    const overrideCopy = extra ? (extra.replace(/https?:\/\/\S+/g, '').trim() || null) : null
     const type = pending.media_type === 'image' ? 'תמונה' : 'סרטון'
 
     let confirmMsg = `🎯 סיכום:\n📁 קמפיין: ${pending.campaign_name}\n📂 סדרה: ${pending.adset_name}\n📎 סוג: ${type}`
@@ -265,24 +245,21 @@ export async function POST(request: Request) {
     confirmMsg += `\n\nמאשר? (כן / ביטול)`
 
     await supabase.from('whatsapp_pending').update({
-      step: 'await_confirmation',
-      primary_text: overrideCopy,
-      destination_url: overrideUrl,
+      step: 'await_confirmation', primary_text: overrideCopy, destination_url: overrideUrl,
     }).eq('user_id', userId)
-    await send(userId, from, confirmMsg)
-    return NextResponse.json({ ok: true })
+    await send(from, confirmMsg)
+    return
   }
 
-  // confirmation → upload
   if (pending.step === 'await_confirmation' && (t === 'כן' || t === 'מאשר' || t === 'yes' || t === '✅')) {
     await supabase.from('whatsapp_pending').update({ step: 'uploading' }).eq('user_id', userId)
-    await send(userId, from, '⏳ מעלה...')
+    await send(from, '⏳ מעלה...')
 
     const selectedIds = (pending.adset_id ?? '').split(',').filter(Boolean)
     const name = assetName()
 
     try {
-      let asset: { type: 'image'; hash: string } | { type: 'video'; videoId: string }
+      let asset
       if (pending.media_type === 'image') {
         const hash = await uploadImageCreative(adAccount.account_id, Buffer.from(pending.media_base64, 'base64'), token)
         asset = { type: 'image', hash }
@@ -291,19 +268,15 @@ export async function POST(request: Request) {
         asset = { type: 'video', videoId }
       }
 
-      const results: string[] = []
-      const errors: string[] = []
+      const results = []
+      const errors = []
 
       for (const adSetId of selectedIds) {
         try {
           const adId = await buildAndCreateAd(
-            adAccount.account_id,
-            adSetId,
-            name,
-            asset,
+            adAccount.account_id, adSetId, name, asset,
             { link: pending.destination_url ?? undefined, message: pending.primary_text ?? undefined },
-            token,
-            pending.campaign_name ?? ''
+            token, pending.campaign_name ?? ''
           )
           results.push(adId)
 
@@ -316,7 +289,7 @@ export async function POST(request: Request) {
             status: 'PAUSED',
           })
         } catch (e) {
-          const msg = (e as Error).message ?? String(e)
+          const msg = e.message ?? String(e)
           console.error(`[upload] adset ${adSetId}: ${msg}`)
           errors.push(`שגיאה: ${msg}`)
         }
@@ -324,30 +297,27 @@ export async function POST(request: Request) {
 
       await supabase.from('whatsapp_pending').upsert({
         user_id: userId, step: 'await_activation',
-        campaigns: JSON.stringify(results),
-        updated_at: new Date().toISOString(),
+        campaigns: JSON.stringify(results), updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 
       let msg = results.length
         ? `✅ נוצרו ${results.length} מודעות מושהות\n\nקמפיין: ${pending.campaign_name}\nסדרה: ${pending.adset_name}\n\nשלח "מאשר" להפעיל, או "ביטול" להשאיר מושהות.`
         : `⚠️ הקובץ הועלה אבל לא נוצרו מודעות`
       if (errors.length) msg += `\n\nשגיאות:\n${errors.map(e => `• ${e}`).join('\n')}`
-      await send(userId, from, msg)
-
+      await send(from, msg)
     } catch (e) {
-      const msg = (e as Error).message ?? String(e)
+      const msg = e.message ?? String(e)
       console.error(`[upload] TOP ERR ${userId}: ${msg}`)
       await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-      await send(userId, from, `❌ שגיאה בהעלאה: ${msg}`)
+      await send(from, `❌ שגיאה בהעלאה: ${msg}`)
     }
-    return NextResponse.json({ ok: true })
+    return
   }
 
   if (pending.step === 'uploading') {
-    await send(userId, from, '⏳ ממתין לסיום ההעלאה...')
-    return NextResponse.json({ ok: true })
+    await send(from, '⏳ ממתין לסיום ההעלאה...')
+    return
   }
 
-  await send(userId, from, '👋 שלח תמונה או סרטון להעלאה ל-Meta Ads')
-  return NextResponse.json({ ok: true })
+  await send(from, '👋 שלח תמונה או סרטון להעלאה ל-Meta Ads')
 }

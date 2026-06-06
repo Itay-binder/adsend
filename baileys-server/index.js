@@ -4,16 +4,15 @@ import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaile
 import QRCode from 'qrcode'
 import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
-import { readdir, mkdir } from 'fs/promises'
+import { mkdir } from 'fs/promises'
 import path from 'path'
 import sharp from 'sharp'
+import { handleFlow } from './flow.js'
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-const WEBHOOK_URL = process.env.NEXT_APP_URL + '/api/whatsapp/webhook'
-const WEBHOOK_SECRET = process.env.WHATSAPP_WEBHOOK_SECRET
 const SESSIONS_DIR = './sessions'
 const logger = pino({ level: 'warn' })
 
@@ -146,19 +145,16 @@ async function handleIncoming(userId, sock, msg) {
   }
 
   try {
-    console.log(`[${userId}] calling webhook, mediaType=${mediaType}, bodySize=${mediaBuffer ? Math.round(mediaBuffer.length/1024)+'KB' : '0'}`)
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 30000)
-    const res = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': WEBHOOK_SECRET },
-      body: JSON.stringify({ userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType }),
-      signal: controller.signal,
+    const send = async (to, body) => {
+      try { await sock.sendMessage(to, { text: body }) }
+      catch (e) { console.error(`[${userId}] send failed:`, e.message) }
+    }
+    await handleFlow({
+      supabase, send,
+      body: { userId, from, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
     })
-    clearTimeout(timeout)
-    console.log(`[${userId}] webhook response: ${res.status}`)
   } catch (err) {
-    console.error(`[${userId}] webhook call failed:`, err.message)
+    console.error(`[${userId}] flow failed:`, err.message)
   }
 }
 
