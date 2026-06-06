@@ -57,7 +57,13 @@ export async function POST(request: Request) {
   const { data: allowedNumbers } = await supabase
     .from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
   if (allowedNumbers && allowedNumbers.length > 0) {
-    const isAllowed = allowedNumbers.some(n => (from as string).includes(n.phone_number))
+    // Normalize: strip non-digits and leading zeros (handles 0526..., +972526..., 972526...)
+    const norm = (s: string) => s.replace(/\D/g, '').replace(/^0+/, '')
+    const fromNorm = norm(from as string)
+    const isAllowed = allowedNumbers.some(n => {
+      const stored = norm(n.phone_number)
+      return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
+    })
     if (!isAllowed) return NextResponse.json({ ok: true })
   }
 
