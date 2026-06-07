@@ -48,3 +48,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ status: 'error', message: 'Baileys server unreachable' })
   }
 }
+
+export async function DELETE() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const res = await fetch(`${BAILEYS_SERVER}/session/${user.id}`, { method: 'DELETE' })
+    const data = await res.json()
+    return NextResponse.json(data)
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Baileys server unreachable' }, { status: 500 })
+  }
+}

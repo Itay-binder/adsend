@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode, Plus, Trash2, Shield } from 'lucide-react'
+import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode, Plus, Trash2, Shield, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
 
@@ -24,6 +24,8 @@ export default function ConnectWhatsAppPage() {
   const [newLabel, setNewLabel] = useState('')
   const [addLoading, setAddLoading] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
+
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const fetchQR = useCallback(async () => {
     setStatus('connecting')
@@ -133,6 +135,23 @@ export default function ConnectWhatsAppPage() {
     }
   }
 
+  async function disconnect() {
+    if (!confirm('לנתק את המספר הנוכחי? תצטרך לסרוק QR או להזין מספר מחדש כדי להתחבר עם מספר אחר.')) return
+    setDisconnecting(true)
+    try {
+      await fetch('/api/whatsapp/qr', { method: 'DELETE' })
+      setStatus('disconnected')
+      setPhone(null)
+      setQrImage(null)
+      setPairingCode(null)
+      setMode('qr')
+      // Trigger a fresh start so QR appears
+      setTimeout(() => fetchQR(), 500)
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
   async function removeNumber(phone_number: string) {
     await fetch('/api/whatsapp/allowed-numbers', {
       method: 'DELETE',
@@ -156,6 +175,14 @@ export default function ConnectWhatsAppPage() {
           <h3 className="text-white font-bold text-lg">מחובר!</h3>
           {phone && <p className="text-emerald-400 font-mono mt-1">+{phone}</p>}
           <p className="text-zinc-400 text-sm mt-2">שלח תמונה/סרטון מהמספר הזה לבוט שלך</p>
+          <button
+            onClick={disconnect}
+            disabled={disconnecting}
+            className="mt-5 inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-red-400 transition-colors disabled:opacity-50"
+          >
+            {disconnecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+            {disconnecting ? 'מנתק...' : 'נתק וחבר מספר אחר'}
+          </button>
         </div>
       ) : status === 'error' ? (
         <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center">

@@ -4,7 +4,7 @@ import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaile
 import QRCode from 'qrcode'
 import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
-import { mkdir, readdir, writeFile, readFile, unlink } from 'fs/promises'
+import { mkdir, readdir, writeFile, readFile, unlink, rm } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import path from 'path'
@@ -257,6 +257,28 @@ app.get('/session/:userId/status', (req, res) => {
   const s = sessions.get(req.params.userId)
   if (!s) return res.json({ status: 'disconnected' })
   res.json({ status: s.status, phone: s.phone, qr: s.qr })
+})
+
+app.delete('/session/:userId', async (req, res) => {
+  const { userId } = req.params
+  const s = sessions.get(userId)
+  try {
+    if (s?.socket) {
+      try { await s.socket.logout() } catch {}
+      try { s.socket.end() } catch {}
+    }
+    sessions.delete(userId)
+    const dir = path.join(SESSIONS_DIR, userId)
+    await rm(dir, { recursive: true, force: true }).catch(() => {})
+    await supabase.from('whatsapp_sessions').upsert({
+      user_id: userId, status: 'disconnected', updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    dlog(`[${userId}] session forcibly disconnected and auth wiped`)
+    res.json({ ok: true })
+  } catch (e) {
+    dlog(`[${userId}] disconnect error: ${e.message}`)
+    res.status(500).json({ ok: false, error: e.message })
+  }
 })
 
 app.post('/session/:userId/start', async (req, res) => {
