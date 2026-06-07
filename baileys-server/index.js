@@ -257,6 +257,26 @@ app.get('/health', (_, res) => res.json({ ok: true, sessions: sessions.size }))
 
 app.get('/debug/last', (_, res) => res.type('text/plain').send(debugLog.join('\n')))
 
+app.get('/debug/db/:userId', async (req, res) => {
+  const { userId } = req.params
+  const out = {}
+  out.envHasUrl = !!process.env.SUPABASE_URL
+  out.envHasKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  out.envKeyLen = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').length
+  out.envKeyPrefix = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').slice(0, 12)
+  try {
+    const meta = await supabase.from('meta_connections').select('access_token').eq('user_id', userId).maybeSingle()
+    out.metaConn = { hasData: !!meta.data, error: meta.error?.message ?? null }
+    const accts = await supabase.from('ad_accounts').select('account_id,is_active').eq('user_id', userId).eq('is_active', true)
+    out.adAccounts = { count: accts.data?.length ?? 0, error: accts.error?.message ?? null, rows: accts.data }
+    const wl = await supabase.from('whatsapp_allowed_numbers').select('phone_number').eq('user_id', userId)
+    out.whitelist = { count: wl.data?.length ?? 0, error: wl.error?.message ?? null }
+  } catch (e) {
+    out.exception = e.message
+  }
+  res.json(out)
+})
+
 // Re-connect all sessions whose auth files exist in the persistent volume.
 // Don't rely on Supabase status — the previous container might have died mid-session
 // and never marked itself 'disconnected' (or marked it and we want to restore anyway).
