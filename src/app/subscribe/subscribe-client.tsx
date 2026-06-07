@@ -12,6 +12,18 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
   async function handleSubscribe() {
     setLoading(true)
     setError(null)
+
+    const trialUrl = process.env.NEXT_PUBLIC_CARDCOM_TRIAL_URL
+    const renewalUrl = process.env.NEXT_PUBLIC_CARDCOM_RENEWAL_URL
+
+    // Returning customer → renewal page (₪99). First-time → trial page (₪0).
+    const target = hasUsedTrial ? renewalUrl : trialUrl
+    if (target) {
+      window.location.href = target
+      return
+    }
+
+    // Fallback: dynamic LowProfile (only if env vars aren't configured)
     try {
       const res = await fetch('/api/cardcom/create-payment', { method: 'POST' })
       const data = await res.json()
