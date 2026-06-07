@@ -15,10 +15,10 @@ type Sub = {
 } | null
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active:    { label: 'פעיל',    color: 'text-emerald-400' },
-  trial:     { label: 'ניסיון',  color: 'text-blue-400' },
-  cancelled: { label: 'בוטל',   color: 'text-amber-400' },
-  expired:   { label: 'פג תוקף', color: 'text-red-400' },
+  active:    { label: 'מנוי פעיל',     color: 'text-emerald-400' },
+  trial:     { label: 'בתקופת ניסיון', color: 'text-blue-400' },
+  cancelled: { label: 'בוטל',          color: 'text-amber-400' },
+  expired:   { label: 'פג תוקף',       color: 'text-red-400' },
 }
 
 function fmt(date: string | null) {
@@ -101,18 +101,26 @@ export function SettingsClient({ email, subscription }: { email: string; subscri
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">תוכנית</span>
-              <span className="text-zinc-300">{s.amount} {s.currency} / חודש</span>
+              <span className="text-zinc-300">
+                {s.status === 'trial'
+                  ? `7 ימי ניסיון חינם · אח״כ ${s.amount} ${s.currency} / חודש`
+                  : `${s.amount} ${s.currency} / חודש`}
+              </span>
             </div>
             {s.current_period_start && (
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">תחילת תקופה</span>
+                <span className="text-zinc-500">
+                  {s.status === 'trial' ? 'תחילת ניסיון' : 'תחילת תקופה'}
+                </span>
                 <span className="text-zinc-300">{fmt(s.current_period_start)}</span>
               </div>
             )}
             {s.current_period_end && (
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-500">
-                  {cancelled || s.status === 'cancelled' ? 'גישה עד' : 'חידוש'}
+                  {cancelled || s.status === 'cancelled'
+                    ? 'גישה עד'
+                    : s.status === 'trial' ? 'סוף ניסיון · חיוב ראשון' : 'חידוש חודשי'}
                 </span>
                 <span className="text-zinc-300 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
