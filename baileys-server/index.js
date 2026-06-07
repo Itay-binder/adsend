@@ -4,10 +4,15 @@ import { makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaile
 import QRCode from 'qrcode'
 import { createClient } from '@supabase/supabase-js'
 import pino from 'pino'
-import { mkdir, readdir } from 'fs/promises'
+import { mkdir, readdir, writeFile, readFile, unlink } from 'fs/promises'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import path from 'path'
+import os from 'os'
 import sharp from 'sharp'
 import { handleFlow } from './flow.js'
+
+const execFileP = promisify(execFile)
 
 const app = express()
 app.use(express.json({ limit: '50mb' }))
@@ -44,6 +49,48 @@ function isDuplicate(msgId) {
 }
 
 await mkdir(SESSIONS_DIR, { recursive: true })
+
+// Resize a video buffer to 1080px wide if it's narrower than 500px. Uses ffmpeg
+// which is installed in the Docker image. Preserves aspect ratio (height auto).
+async function resizeVideoIfNarrow(buffer, userId) {
+  const tmpDir = os.tmpdir()
+  const id = `${userId}-${Date.now()}`
+  const inPath = path.join(tmpDir, `in-${id}.mp4`)
+  const outPath = path.join(tmpDir, `out-${id}.mp4`)
+  try {
+    await writeFile(inPath, buffer)
+
+    // Probe width
+    const { stdout } = await execFileP('ffprobe', [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=width',
+      '-of', 'csv=p=0', inPath,
+    ])
+    const width = parseInt(stdout.trim(), 10)
+    if (!width || width >= 500) {
+      dlog(`[${userId}] video width=${width || 'unknown'} — no resize needed`)
+      return buffer
+    }
+
+    // Scale to 1080 wide, keep aspect ratio, ensure even dimensions (h264 requires it)
+    await execFileP('ffmpeg', [
+      '-y', '-i', inPath,
+      '-vf', 'scale=1080:trunc(ow/a/2)*2',
+      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+      '-c:a', 'copy', '-movflags', '+faststart',
+      outPath,
+    ])
+    const resized = await readFile(outPath)
+    dlog(`[${userId}] video resized from ${width}px to 1080px (${buffer.byteLength}B → ${resized.byteLength}B)`)
+    return resized
+  } catch (e) {
+    dlog(`[${userId}] video resize failed (${e.message}) — using original`)
+    return buffer
+  } finally {
+    unlink(inPath).catch(() => {})
+    unlink(outPath).catch(() => {})
+  }
+}
 
 async function startSession(userId) {
   if (sessions.get(userId)?.status === 'connected') return
@@ -160,11 +207,13 @@ async function handleIncoming(userId, sock, msg) {
           const meta = await sharp(buffer).metadata()
           if (meta.width && meta.width < 500) {
             processedBuffer = await sharp(buffer).resize(1080, null, { fit: 'inside', withoutEnlargement: false }).toBuffer()
-            console.log(`[${userId}] image resized from ${meta.width}px to 1080px`)
+            dlog(`[${userId}] image resized from ${meta.width}px to 1080px`)
           }
         } catch (e) {
-          console.warn(`[${userId}] resize failed, using original:`, e.message)
+          dlog(`[${userId}] image resize failed: ${e.message}`)
         }
+      } else if (mediaType === 'video') {
+        processedBuffer = await resizeVideoIfNarrow(buffer, userId)
       }
 
       mediaBuffer = processedBuffer.toString('base64')
