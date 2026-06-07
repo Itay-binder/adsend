@@ -32,12 +32,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
   const transactionId = result.TranzactionId
 
   const supabase = getSupabase()
+
+  // First subscription row = trial signup, +7 days. Existing row = renewal, +30 days.
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  const isTrial = !existing
+
   const now = new Date()
-  const expiresAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString()
+  const periodEnd = new Date(now)
+  if (isTrial) periodEnd.setDate(periodEnd.getDate() + 7)
+  else periodEnd.setMonth(periodEnd.getMonth() + 1)
 
   await supabase.from('subscriptions').upsert({
     user_id: userId,
-    status: 'active',
+    status: isTrial ? 'trial' : 'active',
     plan: 'monthly',
     amount: 99,
     currency: 'ILS',
@@ -45,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
     card_exp: tokenExp,
     last_transaction_id: transactionId,
     current_period_start: now.toISOString(),
-    current_period_end: expiresAt,
+    current_period_end: periodEnd.toISOString(),
     updated_at: now.toISOString(),
   }, { onConflict: 'user_id' })
 
@@ -54,7 +65,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
   const dateStr = now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
 
   await sendWhatsAppAlert(
-    `💳 לקוח חדש ב-AdSend!\n\nאימייל: ${email}\nסכום: 99 ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
+    isTrial
+      ? `🎁 הרשמה חדשה ל-AdSend (ניסיון חינם 7 ימים)\n\nאימייל: ${email}\nתאריך: ${dateStr}`
+      : `💳 חידוש מנוי ב-AdSend\n\nאימייל: ${email}\nסכום: 99 ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
   )
 
   return NextResponse.json({ ok: true })

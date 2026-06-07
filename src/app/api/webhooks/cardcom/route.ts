@@ -46,9 +46,19 @@ export async function POST(request: Request) {
 
   if (!user) return NextResponse.json({ ok: true })
 
+  // Decide trial vs renewal based on customer history, not the reported amount —
+  // the static Cardcom pages send Amount=99 for both trial and renewal flows.
+  // First subscription row for this user = they came through the trial signup
+  // page; subsequent rows = renewal of an existing customer.
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('id, status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const isTrial = !existing
+
   const now = new Date()
   const periodEnd = new Date(now)
-  const isTrial = amount === 0
   if (isTrial) periodEnd.setDate(periodEnd.getDate() + 7)
   else periodEnd.setMonth(periodEnd.getMonth() + 1)
 
@@ -69,8 +79,8 @@ export async function POST(request: Request) {
   const dateStr = now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
   await sendWhatsAppAlert(
     isTrial
-      ? `🎁 הרשמה חדשה ל-AdSend (ניסיון חינם)\n\nאימייל: ${email}\nניסיון: 7 ימים\nתאריך: ${dateStr}`
-      : `💳 לקוח חדש ב-AdSend!\n\nאימייל: ${email}\nסכום: 99 ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
+      ? `🎁 הרשמה חדשה ל-AdSend (ניסיון חינם 7 ימים)\n\nאימייל: ${email}\nתאריך: ${dateStr}`
+      : `💳 חידוש מנוי ב-AdSend\n\nאימייל: ${email}\nסכום: ${amount || 99} ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
   )
 
   return NextResponse.json({ ok: true })
