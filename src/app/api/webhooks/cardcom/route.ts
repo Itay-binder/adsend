@@ -23,9 +23,10 @@ export async function POST(request: Request) {
     email = body.Email ?? body.email ?? body.CardOwnerEmail ?? body.UIValues?.CardOwnerEmail
     transactionId = String(body.TranzactionId ?? body.TransactionId ?? body.transactionId ?? '')
     cardToken = body.Token ?? body.TokenInfo?.Token
-    cardExp = body.CardExpirationMMYY ?? body.TokenInfo?.CardExpirationMMYY ?? body.UIValues?.CardMonth && body.UIValues?.CardYear
-      ? `${String(body.UIValues?.CardMonth ?? '').padStart(2, '0')}${String(body.UIValues?.CardYear ?? '').slice(-2)}`
-      : body.CardExpirationMMYY
+    const monthY = body.UIValues?.CardMonth
+    const yearY = body.UIValues?.CardYear
+    const uiExp = (monthY && yearY) ? `${String(monthY).padStart(2, '0')}${String(yearY).slice(-2)}` : undefined
+    cardExp = body.CardExpirationMMYY ?? body.TokenInfo?.CardExpirationMMYY ?? uiExp
     amount = Number(body.Amount ?? body.TranzactionInfo?.Amount ?? 0)
   } else {
     const text = await request.text()
