@@ -141,12 +141,19 @@ export async function buildAndCreateAd(
 ): Promise<string> {
   const accountId = normalizeAdAccountId(adAccountId)
 
-  // 1. Get existing ad from adset to clone its params
+  // 1. Get up to 10 ads from the adset, prefer one matching the upload type
   const adsRes = await fetch(
-    `${META_API}/${adSetId}/ads?fields=id,creative{id,object_story_spec}&limit=1&access_token=${accessToken}`
+    `${META_API}/${adSetId}/ads?fields=id,creative{id,object_story_spec}&limit=10&access_token=${accessToken}`
   )
   const adsData = await adsRes.json()
-  const existingSpec = adsData.data?.[0]?.creative?.object_story_spec as Record<string, unknown> | undefined
+  const allSpecs = ((adsData.data ?? []) as { creative?: { object_story_spec?: Record<string, unknown> } }[])
+    .map(a => a.creative?.object_story_spec)
+    .filter((s): s is Record<string, unknown> => !!s)
+
+  const matchingSpec = asset.type === 'image'
+    ? allSpecs.find(s => s.link_data)
+    : allSpecs.find(s => s.video_data)
+  const existingSpec = matchingSpec ?? allSpecs[0]
 
   // 2. Extract params from existing ad OR fetch page_id as fallback
   let params: ExistingAdSpec = existingSpec ? extractSpecParams(existingSpec) : {}

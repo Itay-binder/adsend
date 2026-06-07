@@ -108,11 +108,20 @@ function applyUtmToSpec(spec, campaignName, adName) {
 export async function buildAndCreateAd(adAccountId, adSetId, adName, asset, overrides, accessToken, campaignName) {
   const accountId = normalizeAdAccountId(adAccountId)
 
+  // Fetch up to 10 ads from the adset so we can prefer a same-type template.
+  // image upload → prefer ad with link_data; video upload → prefer ad with video_data.
   const adsRes = await fetch(
-    `${META_API}/${adSetId}/ads?fields=id,creative{id,object_story_spec}&limit=1&access_token=${accessToken}`
+    `${META_API}/${adSetId}/ads?fields=id,creative{id,object_story_spec}&limit=10&access_token=${accessToken}`
   )
   const adsData = await adsRes.json()
-  const existingSpec = adsData.data?.[0]?.creative?.object_story_spec
+  const allSpecs = (adsData.data ?? [])
+    .map(a => a.creative?.object_story_spec)
+    .filter(Boolean)
+
+  const matchingSpec = asset.type === 'image'
+    ? allSpecs.find(s => s.link_data)
+    : allSpecs.find(s => s.video_data)
+  const existingSpec = matchingSpec ?? allSpecs[0]
 
   let params = existingSpec ? extractSpecParams(existingSpec) : {}
   if (!params.pageId) {

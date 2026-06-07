@@ -60,6 +60,7 @@ async function startSession(userId) {
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     const session = sessions.get(userId) ?? {}
+    dlog(`[${userId}] connection.update connection=${connection} qr=${qr ? 'yes' : 'no'} err=${lastDisconnect?.error?.message ?? 'none'}`)
 
     if (qr) {
       const qrImage = await QRCode.toDataURL(qr)
@@ -72,15 +73,22 @@ async function startSession(userId) {
       await supabase.from('whatsapp_sessions').upsert({
         user_id: userId, phone_number: phone, status: 'connected', last_seen: new Date().toISOString()
       }, { onConflict: 'user_id' })
+      dlog(`[${userId}] CONNECTED as ${phone}`)
     }
 
     if (connection === 'close') {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+      const code = lastDisconnect?.error?.output?.statusCode
+      const shouldReconnect = code !== DisconnectReason.loggedOut
       sessions.set(userId, { ...session, status: 'disconnected', qr: null })
       await supabase.from('whatsapp_sessions').upsert({
         user_id: userId, status: 'disconnected', updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
-      if (shouldReconnect) setTimeout(() => startSession(userId), 5000)
+      dlog(`[${userId}] DISCONNECTED code=${code} willReconnect=${shouldReconnect}`)
+      if (shouldReconnect) {
+        // Clear from sessions map so reconnect can run (guard at top of startSession)
+        sessions.delete(userId)
+        setTimeout(() => startSession(userId), 3000)
+      }
     }
   })
 

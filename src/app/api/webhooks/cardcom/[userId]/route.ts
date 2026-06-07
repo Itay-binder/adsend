@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { getLowProfileResult } from '@/lib/cardcom'
+import { sendWhatsAppAlert } from '@/lib/greenapi'
 
 function getSupabase() {
   return createSupabaseClient(
@@ -47,6 +48,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
     current_period_end: expiresAt,
     updated_at: now.toISOString(),
   }, { onConflict: 'user_id' })
+
+  const { data: userInfo } = await supabase.auth.admin.getUserById(userId)
+  const email = userInfo?.user?.email ?? 'לא ידוע'
+  const dateStr = now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
+
+  await sendWhatsAppAlert(
+    `💳 לקוח חדש ב-AdSend!\n\nאימייל: ${email}\nסכום: 99 ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
+  )
 
   return NextResponse.json({ ok: true })
 }
