@@ -57,6 +57,8 @@ function extractSpecParams(spec) {
     headline: ld?.name ?? vd?.title,
     ctaType,
     link: ctaLink,
+    videoThumbnailHash: vd?.image_hash,
+    videoThumbnailUrl: vd?.image_url,
   }
 }
 
@@ -74,16 +76,42 @@ function buildSpec(asset, p) {
       },
     }
   } else {
+    // Video ads require a thumbnail (image_hash or image_url) in video_data.
+    // Prefer hash if we have one (carried over from cloned ad). Otherwise use
+    // the auto-generated thumbnail URL Meta produces from the uploaded video.
+    const thumb = p.videoThumbnailHash
+      ? { image_hash: p.videoThumbnailHash }
+      : p.videoThumbnailUrl
+        ? { image_url: p.videoThumbnailUrl }
+        : asset.thumbnailUrl
+          ? { image_url: asset.thumbnailUrl }
+          : {}
     return {
       page_id: p.pageId,
       video_data: {
         video_id: asset.videoId,
+        ...thumb,
         ...(p.message ? { message: p.message } : {}),
         ...(p.headline ? { title: p.headline } : {}),
         ...(hasCta ? { call_to_action: { type: p.ctaType, value: { link: p.link } } } : {}),
       },
     }
   }
+}
+
+// Poll Meta for the auto-generated thumbnail of a freshly-uploaded video.
+// Thumbnails take a few seconds to render; retry briefly.
+async function getVideoThumbnailUrl(videoId, accessToken, maxAttempts = 8, delayMs = 1500) {
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      const res = await fetch(`${META_API}/${videoId}/thumbnails?access_token=${accessToken}`)
+      const data = await res.json()
+      const uri = data.data?.[0]?.uri
+      if (uri) return uri
+    } catch {}
+    await new Promise(r => setTimeout(r, delayMs))
+  }
+  return null
 }
 
 function applyUtmToSpec(spec, campaignName, adName) {
@@ -133,6 +161,13 @@ export async function buildAndCreateAd(adAccountId, adSetId, adName, asset, over
 
   if (overrides.link) params = { ...params, link: overrides.link }
   if (overrides.message) params = { ...params, message: overrides.message }
+
+  // For videos: if we don't have a thumbnail from the cloned ad, fetch the
+  // auto-generated one Meta produced from the uploaded video.
+  if (asset.type === 'video' && !params.videoThumbnailHash && !params.videoThumbnailUrl) {
+    const thumbnailUrl = await getVideoThumbnailUrl(asset.videoId, accessToken)
+    if (thumbnailUrl) asset = { ...asset, thumbnailUrl }
+  }
 
   let spec = buildSpec(asset, params)
   spec = applyUtmToSpec(spec, campaignName, adName)
