@@ -39,20 +39,18 @@ export function SettingsClient({ email, subscription }: { email: string; subscri
   const canCancel = s && (s.status === 'active' || s.status === 'trial') && !cancelled
 
   async function handleCancel() {
-    if (!confirm('לבטל את המנוי? הגישה תמשיך עד סוף התקופה הנוכחית.')) return
+    if (!confirm('כדי לבטל את המנוי תועבר/י לשיחת WhatsApp עם הנציג שלנו. להמשיך?')) return
     setCancelling(true)
     setError(null)
     try {
-      const res = await fetch('/api/subscription/cancel', { method: 'POST' })
-      const data = await res.json()
-      if (data.ok) {
-        setCancelled(true)
-      } else {
-        setError(data.error ?? 'שגיאה בביטול')
-      }
+      // Fire-and-forget — let Itay know a cancel request came in
+      fetch('/api/subscription/cancel-request', { method: 'POST' }).catch(() => {})
+      const text = encodeURIComponent(
+        `היי, אני רוצה לבטל את המנוי שלי ב-AdSend.\nאימייל: ${email}`
+      )
+      window.location.href = `https://wa.me/972526660006?text=${text}`
     } catch {
-      setError('שגיאה בשרת')
-    } finally {
+      setError('שגיאה — נסה שוב')
       setCancelling(false)
     }
   }
