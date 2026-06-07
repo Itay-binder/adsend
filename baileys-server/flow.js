@@ -295,10 +295,15 @@ export async function handleFlow({ supabase, send, body }) {
         }
       }
 
-      await supabase.from('whatsapp_pending').upsert({
-        user_id: userId, step: 'await_activation',
-        campaigns: JSON.stringify(results), updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      if (results.length) {
+        await supabase.from('whatsapp_pending').upsert({
+          user_id: userId, step: 'await_activation',
+          campaigns: JSON.stringify(results), updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+      } else {
+        // No ads created — reset state instead of leaving a stale await_activation row
+        await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
+      }
 
       let msg = results.length
         ? `✅ נוצרו ${results.length} מודעות מושהות\n\nקמפיין: ${pending.campaign_name}\nסדרה: ${pending.adset_name}\n\nשלח "מאשר" להפעיל, או "ביטול" להשאיר מושהות.`
