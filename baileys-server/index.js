@@ -261,9 +261,23 @@ app.get('/debug/db/:userId', async (req, res) => {
   const { userId } = req.params
   const out = {}
   out.envHasUrl = !!process.env.SUPABASE_URL
+  out.envSupabaseUrl = process.env.SUPABASE_URL
   out.envHasKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
   out.envKeyLen = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').length
   out.envKeyPrefix = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').slice(0, 12)
+  // Test raw fetch to supabase REST endpoint with the service role key
+  try {
+    const url = `${process.env.SUPABASE_URL}/rest/v1/meta_connections?select=user_id&user_id=eq.${userId}`
+    const r = await fetch(url, {
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    })
+    out.rawFetch = { status: r.status, body: await r.text() }
+  } catch (e) {
+    out.rawFetch = { error: e.message, cause: e.cause?.message }
+  }
   try {
     const meta = await supabase.from('meta_connections').select('access_token').eq('user_id', userId).maybeSingle()
     out.metaConn = { hasData: !!meta.data, error: meta.error?.message ?? null }
