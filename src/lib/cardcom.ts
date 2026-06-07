@@ -9,26 +9,34 @@ function getConfig() {
   }
 }
 
-export async function createPaymentPage(userId: string, userEmail?: string): Promise<{ url: string; lowProfileId: string }> {
+export async function createPaymentPage(
+  userId: string,
+  userEmail?: string,
+  opts: { amount?: number; description?: string } = {}
+): Promise<{ url: string; lowProfileId: string }> {
   const { terminal, apiName, appUrl } = getConfig()
+  const amount = opts.amount ?? 0
+  const description = opts.description ?? 'AdSend - אימות אמצעי תשלום (ניסיון חינם 7 ימים)'
 
   const body: Record<string, unknown> = {
     TerminalNumber: terminal,
     ApiName: apiName,
-    Amount: 99,
+    Amount: amount,
     SuccessRedirectUrl: `${appUrl}/subscribe/success`,
     FailedRedirectUrl: `${appUrl}/subscribe/failed`,
     WebHookUrl: `${appUrl}/api/webhooks/cardcom/${userId}`,
     IsCreateToken: true,
+    // For 0-amount transactions Cardcom only validates the card and returns a token
+    Operation: amount === 0 ? 'CreateTokenOnly' : 'ChargeAndCreateToken',
   }
 
-  if (userEmail) {
+  if (userEmail && amount > 0) {
     body.Document = {
       DocumentTypeToCreate: 'auto',
       Language: 'he',
       Email: userEmail,
       IsSendByEmail: true,
-      Products: [{ Description: 'AdSend - מנוי חודשי', Quantity: 1, UnitCost: 99 }],
+      Products: [{ Description: description, Quantity: 1, UnitCost: amount }],
     }
   }
 

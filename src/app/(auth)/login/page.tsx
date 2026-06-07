@@ -32,6 +32,13 @@ export default function LoginPage() {
           <p className="mt-3 text-sm text-zinc-400 leading-relaxed max-w-xs">
             העלה קריאייטיבים וטסטים למנהל מודעות במטא<br />דרך ווצאפ תוך 30 שניות
           </p>
+          <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+            <span className="text-2xl">🎁</span>
+            <div className="text-right">
+              <p className="text-emerald-400 font-bold text-sm leading-tight">7 ימי ניסיון חינם</p>
+              <p className="text-emerald-400/70 text-xs leading-tight">ביטול בכל עת לפני סוף הניסיון</p>
+            </div>
+          </div>
         </div>
 
         {/* Buttons */}
