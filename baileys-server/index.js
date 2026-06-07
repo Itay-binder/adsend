@@ -106,14 +106,33 @@ async function startSession(userId) {
   })
 }
 
+// Unwrap nested message containers (ephemeral/viewOnce/edited/documentWithCaption)
+// and skip metadata-only keys (messageContextInfo, senderKeyDistributionMessage).
+// Returns { type, content } where content is the actual user-facing message.
+function unwrapMessage(message) {
+  if (!message) return { type: null, content: null }
+  const META_KEYS = new Set(['messageContextInfo', 'senderKeyDistributionMessage'])
+  const WRAPPERS = ['ephemeralMessage', 'viewOnceMessage', 'viewOnceMessageV2', 'viewOnceMessageV2Extension', 'documentWithCaptionMessage', 'editedMessage']
+
+  for (const wrapper of WRAPPERS) {
+    if (message[wrapper]?.message) {
+      return unwrapMessage(message[wrapper].message)
+    }
+  }
+  const keys = Object.keys(message).filter(k => !META_KEYS.has(k))
+  const type = keys[0] ?? null
+  return { type, content: type ? message[type] : null }
+}
+
 async function handleIncoming(userId, sock, msg) {
   // replyTo = original JID from WhatsApp (works for both @lid and @s.whatsapp.net)
   // identityJid = real phone number JID for whitelist comparison (LID hides real phone)
   const replyTo = msg.key.remoteJid
   const senderPn = msg.key.senderPn ?? msg.key.participantPn
   const identityJid = (replyTo?.endsWith('@lid') && senderPn) ? senderPn : replyTo
-  const msgType = Object.keys(msg.message ?? {})[0]
-  dlog(`[${userId}] IN replyTo=${replyTo} identityJid=${identityJid} senderPn=${senderPn} type=${msgType}`)
+  const rawKeys = Object.keys(msg.message ?? {}).join(',')
+  const { type: msgType, content: msgContent } = unwrapMessage(msg.message)
+  dlog(`[${userId}] IN replyTo=${replyTo} identityJid=${identityJid} rawKeys=[${rawKeys}] msgType=${msgType}`)
 
   let text = null
   let mediaBuffer = null
@@ -121,19 +140,20 @@ async function handleIncoming(userId, sock, msg) {
 
   try {
     if (msgType === 'conversation' || msgType === 'extendedTextMessage') {
-      text = msg.message?.conversation ?? msg.message?.extendedTextMessage?.text ?? ''
+      text = msgContent?.text ?? (typeof msgContent === 'string' ? msgContent : '') ?? ''
     } else if (msgType === 'imageMessage' || msgType === 'videoMessage') {
       const { downloadMediaMessage } = await import('@whiskeysockets/baileys')
-      console.log(`[${userId}] downloading ${msgType}...`)
+      dlog(`[${userId}] downloading ${msgType}...`)
+      // Build a synthetic msg with the unwrapped content so downloadMediaMessage
+      // finds the media keys regardless of how WhatsApp wrapped it.
+      const downloadMsg = { key: msg.key, message: { [msgType]: msgContent } }
       const buffer = await downloadMediaMessage(
-        msg, 'buffer', {},
+        downloadMsg, 'buffer', {},
         { logger, reuploadRequest: sock.updateMediaMessage }
       )
       let processedBuffer = buffer
       mediaType = msgType === 'imageMessage' ? 'image' : 'video'
-      text = (msgType === 'imageMessage'
-        ? msg.message?.imageMessage?.caption
-        : msg.message?.videoMessage?.caption) ?? ''
+      text = msgContent?.caption ?? ''
 
       if (mediaType === 'image') {
         try {
