@@ -6,7 +6,7 @@ import './globals.css'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 
 export const metadata: Metadata = {
-  title: 'AdSend — העלה קריאייטיבים למטא דרך ווצאפ',
+  title: 'Adigo — העלה קריאייטיבים למטא דרך ווצאפ',
   description: 'העלה קריאייטיבים וטסטים למנהל מודעות במטא דרך ווצאפ תוך 30 שניות',
 }
 

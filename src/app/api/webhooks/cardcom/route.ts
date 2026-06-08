@@ -79,8 +79,8 @@ export async function POST(request: Request) {
   const dateStr = now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
   await sendWhatsAppAlert(
     isTrial
-      ? `🎁 הרשמה חדשה ל-AdSend (ניסיון חינם 7 ימים)\n\nאימייל: ${email}\nתאריך: ${dateStr}`
-      : `💳 חידוש מנוי ב-AdSend\n\nאימייל: ${email}\nסכום: ${amount || 99} ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
+      ? `🎁 הרשמה חדשה ל-Adigo (ניסיון חינם 7 ימים)\n\nאימייל: ${email}\nתאריך: ${dateStr}`
+      : `💳 חידוש מנוי ב-Adigo\n\nאימייל: ${email}\nסכום: ${amount || 99} ₪ / חודש\nעסקה: ${transactionId ?? '-'}\nתאריך: ${dateStr}`
   )
 
   return NextResponse.json({ ok: true })

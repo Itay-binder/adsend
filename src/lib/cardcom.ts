@@ -16,7 +16,7 @@ export async function createPaymentPage(
 ): Promise<{ url: string; lowProfileId: string }> {
   const { terminal, apiName, appUrl } = getConfig()
   const amount = opts.amount ?? 0
-  const description = opts.description ?? 'AdSend - אימות אמצעי תשלום (ניסיון חינם 7 ימים)'
+  const description = opts.description ?? 'Adigo - אימות אמצעי תשלום (ניסיון חינם 7 ימים)'
 
   const body: Record<string, unknown> = {
     TerminalNumber: terminal,
@@ -89,7 +89,7 @@ export async function chargeToken(
       Name: userName,
       Email: userEmail,
       IsSendByEmail: true,
-      Products: [{ Description: 'AdSend - מנוי חודשי', Quantity: 1, UnitCost: 99 }],
+      Products: [{ Description: 'Adigo - מנוי חודשי', Quantity: 1, UnitCost: 99 }],
     }
   }
 

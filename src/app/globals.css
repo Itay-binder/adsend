@@ -46,6 +46,11 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Adigo brand */
+  --color-brand: #00D1C7;
+  --color-brand-dark: #00B8AF;
+  --color-navy: #0B1220;
+  --color-navy-light: #101A2E;
 }
 
 :root {

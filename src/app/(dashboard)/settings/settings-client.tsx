@@ -15,7 +15,7 @@ type Sub = {
 } | null
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active:    { label: 'מנוי פעיל',     color: 'text-emerald-400' },
+  active:    { label: 'מנוי פעיל',     color: 'text-brand' },
   trial:     { label: 'בתקופת ניסיון', color: 'text-blue-400' },
   cancelled: { label: 'בוטל',          color: 'text-amber-400' },
   expired:   { label: 'פג תוקף',       color: 'text-red-400' },
@@ -46,7 +46,7 @@ export function SettingsClient({ email, subscription }: { email: string; subscri
       // Fire-and-forget — let Itay know a cancel request came in
       fetch('/api/subscription/cancel-request', { method: 'POST' }).catch(() => {})
       const text = encodeURIComponent(
-        `היי, אני רוצה לבטל את המנוי שלי ב-AdSend.\nאימייל: ${email}`
+        `היי, אני רוצה לבטל את המנוי שלי ב-Adigo.\nאימייל: ${email}`
       )
       window.location.href = `https://wa.me/972526660006?text=${text}`
     } catch {

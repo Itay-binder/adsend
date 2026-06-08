@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdmin } from '@/lib/auth'
 
 // Generates a magic link for the target user that, when clicked, signs in
-// as that user on the AdSend app. Returns the URL — the client opens it in a new tab.
+// as that user on the Adigo app. Returns the URL — the client opens it in a new tab.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin()
   const { id } = await params

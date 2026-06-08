@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -51,16 +52,17 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-900 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#0B1220] flex items-center justify-center p-6">
       <div className="max-w-md w-full">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Image src="/adigo-icon.png" alt="Adigo" width={64} height={64} className="rounded-xl shadow-2xl shadow-brand/20 mb-3" priority />
           <h1 className="text-3xl font-black text-white mb-2">
-            Ad<span className="text-emerald-400">Send</span>
+            Adi<span className="text-brand">go</span>
           </h1>
           <p className="text-zinc-400">{hasUsedTrial ? 'חידוש מנוי' : 'התחל את הניסיון שלך'}</p>
         </div>
 
-        <div className="bg-zinc-800/60 border border-zinc-700 rounded-2xl p-8">
+        <div className="bg-[#101A2E]/80 border border-zinc-800 rounded-2xl p-8">
           <div className="text-center mb-6">
             {hasUsedTrial ? (
               <>
@@ -69,9 +71,9 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
               </>
             ) : (
               <>
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand/10 border border-brand/30 mb-4">
                   <span className="text-lg">🎁</span>
-                  <span className="text-emerald-400 font-bold text-sm">7 ימי ניסיון חינם</span>
+                  <span className="text-brand font-bold text-sm">7 ימי ניסיון חינם</span>
                 </div>
                 <p className="text-5xl font-black text-white mb-1">₪0</p>
                 <p className="text-zinc-400 text-sm">לתשלום עכשיו</p>
@@ -95,7 +97,7 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
               '7 ימי ניסיון מלאים — תשלום מתחיל רק אחרי',
             ]).map(f => (
               <li key={f} className="flex items-center gap-2">
-                <span className="text-emerald-400">✓</span>
+                <span className="text-brand">✓</span>
                 {f}
               </li>
             ))}
@@ -110,7 +112,7 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
           <button
             onClick={handleSubscribe}
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 text-white font-bold text-base transition-colors"
+            className="w-full py-3.5 rounded-xl bg-brand hover:bg-[#00B8AF] disabled:bg-zinc-700 text-[#0B1220] font-bold text-base transition-colors"
           >
             {loading ? 'מעביר לתשלום...' : hasUsedTrial ? 'לתשלום מאובטח' : 'התחל ניסיון חינם'}
           </button>

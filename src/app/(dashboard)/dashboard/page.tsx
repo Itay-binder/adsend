@@ -39,7 +39,7 @@ export default async function DashboardPage() {
 
       {/* Status */}
       <div className="flex gap-3 mb-8">
-        <Badge variant={waConnected ? 'default' : 'secondary'} className={waConnected ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-zinc-800 text-zinc-400'}>
+        <Badge variant={waConnected ? 'default' : 'secondary'} className={waConnected ? 'bg-brand/20 text-brand border-brand/30' : 'bg-zinc-800 text-zinc-400'}>
           <MessageCircle className="w-3 h-3 ml-1" />
           {waConnected ? 'ווצאפ מחובר ✓' : 'ווצאפ לא מחובר'}
         </Badge>
@@ -56,7 +56,7 @@ export default async function DashboardPage() {
             <p className="text-white font-medium text-sm">חבר את הווצאפ שלך</p>
             <p className="text-zinc-400 text-xs mt-0.5">צריך לחבר כדי להעלות קריאייטיבים</p>
           </div>
-          <Link href="/connect/whatsapp" className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium">
+          <Link href="/connect/whatsapp" className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand hover:bg-[#00B8AF] text-[#0B1220] text-sm font-medium">
             חבר <ArrowLeft className="w-3 h-3" />
           </Link>
         </div>
@@ -88,15 +88,15 @@ export default async function DashboardPage() {
 
       {/* CTA */}
       {waConnected && metaConnected && (
-        <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-xl p-5 flex items-center justify-between">
+        <div className="bg-brand/10 border border-brand/30 rounded-xl p-5 flex items-center justify-between">
           <div>
             <p className="text-white font-bold">📲 מוכן להעלות!</p>
             <p className="text-zinc-400 text-sm mt-1">שלח תמונה/סרטון לבוט הווצאפ שלך</p>
             {waSession.data?.phone_number && (
-              <p className="text-emerald-400 text-xs mt-1 font-mono">+{waSession.data.phone_number}</p>
+              <p className="text-brand text-xs mt-1 font-mono">+{waSession.data.phone_number}</p>
             )}
           </div>
-          <Upload className="w-8 h-8 text-emerald-400" />
+          <Upload className="w-8 h-8 text-brand" />
         </div>
       )}
 
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                   <p className="text-white text-sm font-medium">{u.campaign_name}</p>
                   <p className="text-zinc-500 text-xs">{u.adset_name} · {new Date(u.created_at).toLocaleDateString('he-IL')}</p>
                 </div>
-                <Badge className={u.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}>
+                <Badge className={u.status === 'ACTIVE' ? 'bg-brand/20 text-brand' : 'bg-zinc-700 text-zinc-400'}>
                   {u.status === 'ACTIVE' ? 'פעיל' : 'מושהה'}
                 </Badge>
               </div>

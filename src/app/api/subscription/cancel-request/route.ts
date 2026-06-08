@@ -22,7 +22,7 @@ export async function POST() {
   const fullName = (user.user_metadata?.full_name as string) ?? ''
 
   await sendWhatsAppAlert(
-    `⚠️ AdSend — לקוח ביקש לבטל מנוי\n\n` +
+    `⚠️ Adigo — לקוח ביקש לבטל מנוי\n\n` +
     `שם: ${fullName || '(לא צוין)'}\n` +
     `אימייל: ${user.email}\n` +
     `סטטוס: ${sub?.status ?? 'אין מנוי'}\n` +

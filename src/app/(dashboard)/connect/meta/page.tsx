@@ -139,8 +139,8 @@ export default function ConnectMetaPage() {
       <p className="text-zinc-400 mb-8">חשבון המודעות המחובר</p>
 
       <div className="flex items-center gap-2 mb-5">
-        <CheckCircle className="w-5 h-5 text-emerald-400" />
-        <span className="text-emerald-400 font-medium">Meta מחובר</span>
+        <CheckCircle className="w-5 h-5 text-brand" />
+        <span className="text-brand font-medium">Meta מחובר</span>
       </div>
 
       <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-4 flex items-center justify-between mb-4">
@@ -148,7 +148,7 @@ export default function ConnectMetaPage() {
           <p className="text-white text-sm font-medium">{selectedAccount.account_name}</p>
           <p className="text-zinc-500 text-xs font-mono mt-0.5">{selectedAccount.account_id} · {selectedAccount.currency}</p>
         </div>
-        <Badge className="bg-emerald-500/20 text-emerald-400">פעיל</Badge>
+        <Badge className="bg-brand/20 text-brand">פעיל</Badge>
       </div>
 
       <Button onClick={connectMeta} variant="outline" className="gap-2 border-zinc-700 text-zinc-300 hover:text-white">

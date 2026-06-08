@@ -170,10 +170,10 @@ export default function ConnectWhatsAppPage() {
 
       {/* ── Connection Card ── */}
       {status === 'connected' ? (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-8 text-center">
-          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />
+        <div className="bg-brand/10 border border-brand/30 rounded-2xl p-8 text-center">
+          <CheckCircle className="w-12 h-12 text-brand mx-auto mb-3" />
           <h3 className="text-white font-bold text-lg">מחובר!</h3>
-          {phone && <p className="text-emerald-400 font-mono mt-1">+{phone}</p>}
+          {phone && <p className="text-brand font-mono mt-1">+{phone}</p>}
           <p className="text-zinc-400 text-sm mt-2">שלח תמונה/סרטון מהמספר הזה לבוט שלך</p>
           <button
             onClick={disconnect}
@@ -259,7 +259,7 @@ export default function ConnectWhatsAppPage() {
                     dir="ltr"
                   />
                   {phoneError && <p className="text-red-400 text-xs">{phoneError}</p>}
-                  <Button onClick={requestPairingCode} disabled={phoneLoading || !phoneInput} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                  <Button onClick={requestPairingCode} disabled={phoneLoading || !phoneInput} className="bg-brand hover:bg-[#00B8AF] text-white">
                     {phoneLoading ? <RefreshCw className="w-4 h-4 animate-spin mx-auto" /> : 'קבל קוד חיבור'}
                   </Button>
                 </div>

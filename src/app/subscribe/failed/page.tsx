@@ -9,7 +9,7 @@ export default function SubscribeFailedPage() {
         <p className="text-zinc-400 mb-8">משהו השתבש. אפשר לנסות שוב.</p>
         <Link
           href="/subscribe"
-          className="inline-block px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+          className="inline-block px-6 py-3 rounded-xl bg-brand hover:bg-[#00B8AF] text-white font-bold transition-colors"
         >
           ניסיון חוזר
         </Link>
