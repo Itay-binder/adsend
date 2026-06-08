@@ -4,6 +4,7 @@ import { MessageCircle, Upload, ArrowLeft } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { DashboardTracker } from '@/components/dashboard-tracker'
 
 const BAILEYS = process.env.BAILEYS_SERVER_URL ?? 'http://localhost:3001'
 
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-8 max-w-2xl">
+      <DashboardTracker waConnected={waConnected} metaConnected={metaConnected} />
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-white">שלום, {name} 👋</h2>
         <p className="text-zinc-400 mt-1">מוכן להעלות קריאייטיבים?</p>

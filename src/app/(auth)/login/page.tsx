@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { trackCustom } from '@/components/meta-pixel'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState<'google' | 'facebook' | null>(null)
   const supabase = createClient()
+
+  useEffect(() => {
+    trackCustom('login')
+  }, [])
 
   async function signIn(provider: 'google' | 'facebook') {
     setLoading(provider)

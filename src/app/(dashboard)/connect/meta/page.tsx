@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle, RefreshCw } from 'lucide-react'
+import { trackCustom } from '@/components/meta-pixel'
 
 interface AdAccount {
   id?: string
@@ -19,6 +20,19 @@ export default function ConnectMetaPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const isChoosing = searchParams.get('choose') === '1'
+  const justConnected = searchParams.get('just_connected') === '1'
+
+  // Fire meta_connection event on the first hit back from OAuth callback,
+  // dedupe with localStorage so accidental reloads don't double-count.
+  useEffect(() => {
+    if (justConnected && typeof window !== 'undefined') {
+      const KEY = 'adigo_meta_connection_fired'
+      if (!localStorage.getItem(KEY)) {
+        trackCustom('meta_connection')
+        localStorage.setItem(KEY, new Date().toISOString())
+      }
+    }
+  }, [justConnected])
 
   const [connected, setConnected] = useState(false)
   const [selectedAccount, setSelectedAccount] = useState<AdAccount | null>(null)

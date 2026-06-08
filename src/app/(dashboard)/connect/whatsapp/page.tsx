@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { CheckCircle, RefreshCw, AlertCircle, Smartphone, QrCode, Plus, Trash2, Shield, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Image from 'next/image'
+import { trackCustom } from '@/components/meta-pixel'
 
 type Status = 'disconnected' | 'connecting' | 'connected' | 'error'
 type Mode = 'qr' | 'phone'
@@ -82,6 +83,17 @@ export default function ConnectWhatsAppPage() {
     }, 2000)
     return () => clearInterval(interval)
   }, [status, mode])
+
+  // Fire whatsapp_connection event once per user when status first becomes 'connected'
+  useEffect(() => {
+    if (status === 'connected' && typeof window !== 'undefined') {
+      const KEY = 'adigo_whatsapp_connection_fired'
+      if (!localStorage.getItem(KEY)) {
+        trackCustom('whatsapp_connection')
+        localStorage.setItem(KEY, new Date().toISOString())
+      }
+    }
+  }, [status])
 
   async function requestPairingCode() {
     const digits = phoneInput.replace(/\D/g, '')

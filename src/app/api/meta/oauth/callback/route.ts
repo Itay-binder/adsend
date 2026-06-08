@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
 
-    return NextResponse.redirect(`${appUrl}/connect/meta?choose=1`)
+    return NextResponse.redirect(`${appUrl}/connect/meta?choose=1&just_connected=1`)
   } catch (err) {
     console.error('Meta OAuth error:', err)
     return NextResponse.redirect(`${appUrl}/connect/meta?error=oauth_failed`)

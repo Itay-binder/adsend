@@ -1,18 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { trackEvent, trackCustom } from '@/components/meta-pixel'
 
 export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    trackEvent('InitiateCheckout', {
+      content_name: hasUsedTrial ? 'Adigo Renewal' : 'Adigo Trial',
+      value: hasUsedTrial ? 99 : 0,
+      currency: 'ILS',
+    })
+    // Custom 'welcome' event for the trial offer screen
+    if (!hasUsedTrial) trackCustom('welcome')
+  }, [hasUsedTrial])
+
   async function handleSubscribe() {
     setLoading(true)
     setError(null)
+
+    // Custom 'checkout' event the moment they actually leave to Cardcom
+    trackCustom('checkout', {
+      content_name: hasUsedTrial ? 'Adigo Renewal' : 'Adigo Trial',
+      value: hasUsedTrial ? 99 : 0,
+      currency: 'ILS',
+    })
 
     const trialUrl = process.env.NEXT_PUBLIC_CARDCOM_TRIAL_URL
     const renewalUrl = process.env.NEXT_PUBLIC_CARDCOM_RENEWAL_URL
