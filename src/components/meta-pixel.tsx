@@ -61,16 +61,31 @@ export function MetaPixel() {
   )
 }
 
+// Best-effort log to our own events table — never blocks the pixel call.
+function logToDb(name: string, params?: Record<string, unknown>) {
+  if (typeof window === 'undefined') return
+  fetch('/api/track', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, params: params ?? {} }),
+    keepalive: true, // survives page navigation
+  }).catch(() => { /* fire and forget */ })
+}
+
 // Helper to fire standard Meta events (PageView, Subscribe, InitiateCheckout, …)
+// Also logs to the events table for our own analytics.
 export function trackEvent(name: string, params?: Record<string, unknown>) {
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     window.fbq('track', name, params ?? {})
   }
+  logToDb(name, params)
 }
 
 // Helper to fire custom events (login, welcome, dashboard, whatsapp_connection, …)
+// Also logs to the events table for our own analytics.
 export function trackCustom(name: string, params?: Record<string, unknown>) {
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     window.fbq('trackCustom', name, params ?? {})
   }
+  logToDb(name, params)
 }

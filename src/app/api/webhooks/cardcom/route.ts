@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { sendWhatsAppAlert } from '@/lib/greenapi'
+import { logEvent } from '@/lib/events'
 
 function getSupabase() {
   return createSupabaseClient(
@@ -75,6 +76,16 @@ export async function POST(request: Request) {
     current_period_end: periodEnd.toISOString(),
     updated_at: now.toISOString(),
   }, { onConflict: 'user_id' })
+
+  // Log to our events table — the canonical record. We log a Purchase even
+  // for the trial (value=0) so the analytics dashboard can show signups too.
+  await logEvent(user.id, 'purchase', {
+    is_trial: isTrial,
+    amount: isTrial ? 0 : (amount || 99),
+    currency: 'ILS',
+    transaction_id: transactionId,
+    email,
+  })
 
   const dateStr = now.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
   await sendWhatsAppAlert(

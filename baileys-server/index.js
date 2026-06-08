@@ -11,6 +11,21 @@ import path from 'path'
 import os from 'os'
 import sharp from 'sharp'
 import { handleFlow } from './flow.js'
+import { sendEmail, buildDisconnectEmail } from './email.js'
+
+// Tiny GreenAPI alert helper — used to ping Itay on critical events.
+async function sendItayAlert(text) {
+  const instance = process.env.GREENAPI_INSTANCE_ID ?? '7105272975'
+  const token = process.env.GREENAPI_TOKEN
+  if (!token) return
+  try {
+    await fetch(`https://api.green-api.com/waInstance${instance}/sendMessage/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId: '972526660006@c.us', message: text }),
+    })
+  } catch {}
+}
 
 const execFileP = promisify(execFile)
 
@@ -116,20 +131,63 @@ async function startSession(userId) {
 
     if (connection === 'open') {
       const phone = sock.user?.id?.split(':')[0] ?? null
+      const wasDisconnected = session.status !== 'connected'
       sessions.set(userId, { ...session, qr: null, status: 'connected', phone })
       await supabase.from('whatsapp_sessions').upsert({
         user_id: userId, phone_number: phone, status: 'connected', last_seen: new Date().toISOString()
       }, { onConflict: 'user_id' })
+      // Only log a fresh connection event if this isn't a silent reconnect from
+      // an already-connected state (Baileys can emit 'open' redundantly).
+      if (wasDisconnected) {
+        await supabase.from('events').insert({
+          user_id: userId, name: 'whatsapp_reconnected', params: { phone },
+        }).catch(() => {})
+      }
       dlog(`[${userId}] CONNECTED as ${phone}`)
     }
 
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode
+      const reason = lastDisconnect?.error?.message ?? null
       const shouldReconnect = code !== DisconnectReason.loggedOut
       sessions.set(userId, { ...session, status: 'disconnected', qr: null })
       await supabase.from('whatsapp_sessions').upsert({
         user_id: userId, status: 'disconnected', updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' })
+
+      // Log every disconnect for analytics — but only fire the
+      // alerts/email for a real disconnect (loggedOut: user unlinked the
+      // device on their phone). Network-blip disconnects auto-reconnect
+      // and don't deserve noise.
+      await supabase.from('events').insert({
+        user_id: userId, name: 'whatsapp_disconnect',
+        params: { code, reason, will_reconnect: shouldReconnect },
+      }).catch(() => {})
+
+      if (!shouldReconnect) {
+        try {
+          const { data: { user } } = await supabase.auth.admin.getUserById(userId)
+          const email = user?.email
+          const name = user?.user_metadata?.full_name ?? ''
+          const phone = session.phone
+
+          if (email) {
+            const tpl = buildDisconnectEmail(name)
+            await sendEmail({ to: email, ...tpl })
+          }
+          await sendItayAlert(
+            `📵 Adigo — ווצאפ של לקוח התנתק (loggedOut)\n\n` +
+            `אימייל: ${email ?? '—'}\n` +
+            `שם: ${name || '—'}\n` +
+            `מספר: ${phone ? '+' + phone : '—'}\n` +
+            `קוד: ${code}\n` +
+            `נשלח אימייל אוטומטי לבקשת חיבור מחדש.`
+          )
+        } catch (e) {
+          dlog(`[${userId}] notify-disconnect failed: ${e.message}`)
+        }
+      }
+
       dlog(`[${userId}] DISCONNECTED code=${code} willReconnect=${shouldReconnect}`)
       if (shouldReconnect) {
         // Clear from sessions map so reconnect can run (guard at top of startSession)

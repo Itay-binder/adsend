@@ -288,6 +288,15 @@ export async function handleFlow({ supabase, send, body }) {
             primary_text: pending.primary_text, destination_url: pending.destination_url,
             status: 'PAUSED',
           })
+          await supabase.from('events').insert({
+            user_id: userId, name: 'upload_created',
+            params: {
+              media_type: pending.media_type,
+              campaign_name: pending.campaign_name,
+              adset_name: pending.adset_name,
+              meta_ad_id: adId,
+            },
+          }).catch(() => {})
         } catch (e) {
           const msg = e.message ?? String(e)
           console.error(`[upload] adset ${adSetId}: ${msg}`)
