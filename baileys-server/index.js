@@ -145,9 +145,11 @@ async function startSession(userId) {
       // Only log a fresh connection event if this isn't a silent reconnect from
       // an already-connected state (Baileys can emit 'open' redundantly).
       if (wasDisconnected) {
-        await supabase.from('events').insert({
-          user_id: userId, name: 'whatsapp_reconnected', params: { phone },
-        }).catch(() => {})
+        try {
+          await supabase.from('events').insert({
+            user_id: userId, name: 'whatsapp_reconnected', params: { phone },
+          })
+        } catch {}
       }
       dlog(`[${userId}] CONNECTED as ${phone}`)
     }
@@ -165,10 +167,12 @@ async function startSession(userId) {
       // alerts/email for a real disconnect (loggedOut: user unlinked the
       // device on their phone). Network-blip disconnects auto-reconnect
       // and don't deserve noise.
-      await supabase.from('events').insert({
-        user_id: userId, name: 'whatsapp_disconnect',
-        params: { code, reason, will_reconnect: shouldReconnect },
-      }).catch(() => {})
+      try {
+        await supabase.from('events').insert({
+          user_id: userId, name: 'whatsapp_disconnect',
+          params: { code, reason, will_reconnect: shouldReconnect },
+        })
+      } catch {}
 
       // Skip the webhook if THIS disconnect was triggered by the customer
       // clicking 'Disconnect' in the UI — that's deliberate, not a problem.
