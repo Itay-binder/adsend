@@ -11,7 +11,6 @@ import path from 'path'
 import os from 'os'
 import sharp from 'sharp'
 import { handleFlow } from './flow.js'
-import { sendEmail, buildDisconnectEmail } from './email.js'
 
 // Tiny GreenAPI alert helper — used to ping Itay on critical events.
 async function sendItayAlert(text) {
@@ -38,6 +37,13 @@ const logger = pino({ level: 'warn' })
 
 // In-memory session map: userId → { socket, qr, status, phone }
 const sessions = new Map()
+
+// Track user-initiated disconnects (clicks on "Disconnect" button) so we don't
+// fire the webhook for those — only WhatsApp-side logouts should notify Itay.
+const manualDisconnects = new Set()
+
+const DISCONNECT_WEBHOOK_URL = process.env.DISCONNECT_WEBHOOK_URL ??
+  'https://hook.us1.make.com/1hc7evjqr6r6tyq4af2rnjtvi2t795ae'
 
 // Recent activity buffer for /debug/last (last 100 events)
 const debugLog = []
@@ -164,24 +170,41 @@ async function startSession(userId) {
         params: { code, reason, will_reconnect: shouldReconnect },
       }).catch(() => {})
 
-      if (!shouldReconnect) {
+      // Skip the webhook if THIS disconnect was triggered by the customer
+      // clicking 'Disconnect' in the UI — that's deliberate, not a problem.
+      const wasUserInitiated = manualDisconnects.has(userId)
+      if (wasUserInitiated) manualDisconnects.delete(userId)
+
+      if (!shouldReconnect && !wasUserInitiated) {
         try {
           const { data: { user } } = await supabase.auth.admin.getUserById(userId)
-          const email = user?.email
-          const name = user?.user_metadata?.full_name ?? ''
-          const phone = session.phone
+          const email = user?.email ?? null
+          const name = user?.user_metadata?.full_name ?? null
+          const phone = session.phone ?? null
 
-          if (email) {
-            const tpl = buildDisconnectEmail(name)
-            await sendEmail({ to: email, ...tpl })
+          const payload = {
+            event: 'whatsapp_disconnect',
+            user_id: userId,
+            email,
+            name,
+            phone: phone ? `+${phone}` : null,
+            reason,
+            code,
+            timestamp: new Date().toISOString(),
           }
+
+          await fetch(DISCONNECT_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).catch(e => dlog(`[${userId}] webhook send failed: ${e.message}`))
+
           await sendItayAlert(
-            `📵 Adigo — ווצאפ של לקוח התנתק (loggedOut)\n\n` +
-            `אימייל: ${email ?? '—'}\n` +
+            `📵 Adigo — ווצאפ של לקוח התנתק\n\n` +
             `שם: ${name || '—'}\n` +
+            `אימייל: ${email ?? '—'}\n` +
             `מספר: ${phone ? '+' + phone : '—'}\n` +
-            `קוד: ${code}\n` +
-            `נשלח אימייל אוטומטי לבקשת חיבור מחדש.`
+            `נשלח טריגר ל-Make.`
           )
         } catch (e) {
           dlog(`[${userId}] notify-disconnect failed: ${e.message}`)
@@ -320,6 +343,8 @@ app.get('/session/:userId/status', (req, res) => {
 app.delete('/session/:userId', async (req, res) => {
   const { userId } = req.params
   const s = sessions.get(userId)
+  // Mark this as user-initiated so the close handler skips the webhook
+  manualDisconnects.add(userId)
   try {
     if (s?.socket) {
       try { await s.socket.logout() } catch {}
