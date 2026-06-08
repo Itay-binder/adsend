@@ -25,10 +25,10 @@ export function Nav({ email }: { email: string }) {
 
   return (
     <aside className="w-56 shrink-0 h-screen sticky top-0 bg-zinc-950 border-l border-zinc-800 flex flex-col">
-      <div className="p-5 border-b border-zinc-800 flex items-center justify-between gap-2.5">
+      <div className="p-5 border-b border-zinc-800 flex items-center gap-2.5">
         <div>
           <h1 className="text-xl font-black">
-            Adi<span className="text-emerald-400">go</span>
+            Adi<span className="text-sky-400">go</span>
           </h1>
           <p className="text-xs text-zinc-500 leading-none mt-0.5">CRM</p>
         </div>

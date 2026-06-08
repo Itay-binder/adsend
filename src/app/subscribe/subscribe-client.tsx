@@ -75,7 +75,7 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
         <div className="text-center mb-8 flex flex-col items-center">
           <Image src="/adigo-icon.png" alt="Adigo" width={64} height={64} className="rounded-full shadow-2xl shadow-emerald-500/20 mb-3" priority />
           <h1 className="text-3xl font-black text-white mb-2">
-            Adi<span className="text-emerald-400">go</span>
+            Adi<span className="text-sky-400">go</span>
           </h1>
           <p className="text-zinc-400">{hasUsedTrial ? 'חידוש מנוי' : 'התחל את הניסיון שלך'}</p>
         </div>

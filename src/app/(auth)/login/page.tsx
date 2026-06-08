@@ -34,7 +34,7 @@ export default function LoginPage() {
         <div className="text-center flex flex-col items-center">
           <Image src="/adigo-icon.png" alt="Adigo" width={84} height={84} className="rounded-full shadow-2xl shadow-emerald-500/20 mb-4" priority />
           <h1 className="text-4xl font-black tracking-tight text-white">
-            Adi<span className="text-emerald-400">go</span>
+            Adi<span className="text-sky-400">go</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-400 leading-relaxed max-w-xs">
             30 שניות והקריאייטיבים שלך באוויר.<br />שולחים תמונה לבוט בווצאפ — עלה ישר ל-Meta Ads.

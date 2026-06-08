@@ -19,9 +19,9 @@ export function Sidebar() {
 
   return (
     <aside className="w-56 shrink-0 h-screen sticky top-0 bg-zinc-950 border-l border-zinc-800 flex flex-col">
-      <div className="p-5 border-b border-zinc-800 flex items-center justify-between gap-2.5">
+      <div className="p-5 border-b border-zinc-800 flex items-center gap-2.5">
         <h1 className="text-xl font-black text-white">
-          Adi<span className="text-emerald-400">go</span>
+          Adi<span className="text-sky-400">go</span>
         </h1>
         <Image src="/adigo-icon.png" alt="Adigo" width={32} height={32} className="rounded-full" />
       </div>
