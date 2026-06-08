@@ -20,9 +20,10 @@ function LoginInner() {
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 max-w-sm w-full text-center space-y-4">
         <div className="flex flex-col items-center">
-          <img src="/adigo-icon.png" alt="Adigo" width={64} height={64} className="rounded-xl mb-3" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/adigo-icon.png" alt="Adigo" width={64} height={64} className="rounded-full mb-3" />
           <h1 className="text-2xl font-bold">
-            Adi<span className="text-brand">go</span> <span className="text-zinc-500 text-sm">CRM</span>
+            Adi<span className="text-emerald-400">go</span> <span className="text-zinc-500 text-sm">CRM</span>
           </h1>
         </div>
         <p className="text-zinc-400 text-sm">כניסה לאדמין בלבד</p>

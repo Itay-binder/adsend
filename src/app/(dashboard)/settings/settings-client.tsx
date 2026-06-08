@@ -15,7 +15,7 @@ type Sub = {
 } | null
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active:    { label: 'מנוי פעיל',     color: 'text-brand' },
+  active:    { label: 'מנוי פעיל',     color: 'text-emerald-400' },
   trial:     { label: 'בתקופת ניסיון', color: 'text-blue-400' },
   cancelled: { label: 'בוטל',          color: 'text-amber-400' },
   expired:   { label: 'פג תוקף',       color: 'text-red-400' },

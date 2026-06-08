@@ -24,15 +24,15 @@ export function Nav({ email }: { email: string }) {
   ]
 
   return (
-    <aside className="w-56 shrink-0 h-screen sticky top-0 bg-[#0B1220] border-l border-zinc-800 flex flex-col">
-      <div className="p-5 border-b border-zinc-800 flex items-center gap-2.5">
-        <Image src="/adigo-icon.png" alt="Adigo" width={32} height={32} className="rounded-md" />
+    <aside className="w-56 shrink-0 h-screen sticky top-0 bg-zinc-950 border-l border-zinc-800 flex flex-col">
+      <div className="p-5 border-b border-zinc-800 flex items-center justify-between gap-2.5">
         <div>
           <h1 className="text-xl font-black">
-            Adi<span className="text-brand">go</span>
+            Adi<span className="text-emerald-400">go</span>
           </h1>
           <p className="text-xs text-zinc-500 leading-none mt-0.5">CRM</p>
         </div>
+        <Image src="/adigo-icon.png" alt="Adigo" width={32} height={32} className="rounded-full" />
       </div>
       <nav className="flex-1 p-3 flex flex-col gap-1">
         {links.map(({ href, label, icon: Icon }) => (

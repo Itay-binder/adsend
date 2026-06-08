@@ -18,7 +18,7 @@ export default function SubscribeSuccessPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#0B1220] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
       <div className="max-w-sm w-full text-center">
         <div className="text-5xl mb-4">🎉</div>
         <h1 className="text-2xl font-black text-white mb-2">ברוך הבא ל-Adigo!</h1>
@@ -26,7 +26,7 @@ export default function SubscribeSuccessPage() {
         <button
           onClick={() => router.push('/dashboard')}
           disabled={!done}
-          className="inline-block px-6 py-3 rounded-xl bg-brand hover:bg-[#00B8AF] disabled:bg-zinc-700 text-[#0B1220] font-bold transition-colors"
+          className="inline-block px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 text-white font-bold transition-colors"
         >
           {done ? 'לדשבורד' : 'רגע...'}
         </button>

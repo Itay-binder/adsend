@@ -28,22 +28,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0B1220] via-[#0B1220] to-[#0E1A2E]">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-indigo-950">
       <div className="w-full max-w-sm px-6 py-10 flex flex-col items-center gap-8">
         {/* Logo */}
         <div className="text-center flex flex-col items-center">
-          <Image src="/adigo-icon.png" alt="Adigo" width={84} height={84} className="rounded-2xl shadow-2xl shadow-brand/20 mb-4" priority />
+          <Image src="/adigo-icon.png" alt="Adigo" width={84} height={84} className="rounded-full shadow-2xl shadow-emerald-500/20 mb-4" priority />
           <h1 className="text-4xl font-black tracking-tight text-white">
-            Adi<span className="text-brand">go</span>
+            Adi<span className="text-emerald-400">go</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-400 leading-relaxed max-w-xs">
             30 שניות והקריאייטיבים שלך באוויר.<br />שולחים תמונה לבוט בווצאפ — עלה ישר ל-Meta Ads.
           </p>
-          <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-brand/10 border border-brand/30">
+          <div className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/30">
             <span className="text-2xl">🎁</span>
             <div className="text-right">
-              <p className="text-brand font-bold text-sm leading-tight">7 ימי ניסיון חינם</p>
-              <p className="text-brand/70 text-xs leading-tight">ביטול בכל עת לפני סוף הניסיון</p>
+              <p className="text-emerald-400 font-bold text-sm leading-tight">7 ימי ניסיון חינם</p>
+              <p className="text-emerald-400/70 text-xs leading-tight">ביטול בכל עת לפני סוף הניסיון</p>
             </div>
           </div>
         </div>

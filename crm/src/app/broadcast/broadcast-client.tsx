@@ -76,7 +76,7 @@ export function BroadcastClient({ recipients }: { recipients: Recipient[] }) {
           </div>
           <button
             onClick={toggleAll}
-            className="text-xs text-brand hover:text-brand/90"
+            className="text-xs text-emerald-400 hover:text-emerald-300"
           >
             {selected.size === recipients.length ? 'בטל הכל' : 'בחר הכל'}
           </button>
@@ -103,7 +103,7 @@ export function BroadcastClient({ recipients }: { recipients: Recipient[] }) {
       <button
         onClick={send}
         disabled={sending || !message.trim() || targets.length === 0}
-        className="w-full flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-medium transition-colors"
+        className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-medium transition-colors"
       >
         {sending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
         {sending ? 'שולח...' : `שלח ל-${targets.length} נמענים`}
@@ -113,7 +113,7 @@ export function BroadcastClient({ recipients }: { recipients: Recipient[] }) {
       {results && (
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-6 space-y-2">
           <div className="flex items-center gap-4 text-sm mb-3">
-            <div className="flex items-center gap-1.5 text-brand">
+            <div className="flex items-center gap-1.5 text-emerald-400">
               <CheckCircle className="w-4 h-4" />
               {successCount} נשלחו
             </div>

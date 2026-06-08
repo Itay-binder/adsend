@@ -113,7 +113,7 @@ export function CustomerClient(props: Props) {
         <button
           onClick={loginAs}
           disabled={impersonating}
-          className="flex items-center gap-2 bg-brand hover:bg-brand-dark disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           {impersonating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
           התחבר כלקוח
@@ -124,7 +124,7 @@ export function CustomerClient(props: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <MessageCircle className={`w-4 h-4 ${props.waSession?.status === 'connected' ? 'text-brand' : 'text-zinc-500'}`} />
+            <MessageCircle className={`w-4 h-4 ${props.waSession?.status === 'connected' ? 'text-emerald-400' : 'text-zinc-500'}`} />
             <span className="text-xs text-zinc-400">WhatsApp</span>
           </div>
           {props.waSession?.phone_number ? (
@@ -208,12 +208,12 @@ export function CustomerClient(props: Props) {
           <button
             onClick={save}
             disabled={saving}
-            className="flex items-center gap-2 bg-brand hover:bg-brand-dark disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
             {saving ? 'שומר...' : 'שמור שינויים'}
           </button>
-          {savedMsg && <p className="text-xs text-brand">{savedMsg}</p>}
+          {savedMsg && <p className="text-xs text-emerald-400">{savedMsg}</p>}
         </div>
       </div>
 
@@ -234,7 +234,7 @@ export function CustomerClient(props: Props) {
                   <div className="text-zinc-500 text-xs">{u.adset_name} · {u.media_type === 'image' ? 'תמונה' : 'סרטון'}</div>
                 </div>
                 <div className="text-left">
-                  <span className={`text-xs px-2 py-1 rounded ${u.status === 'ACTIVE' ? 'bg-brand/15 text-brand' : 'bg-zinc-700 text-zinc-400'}`}>
+                  <span className={`text-xs px-2 py-1 rounded ${u.status === 'ACTIVE' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}`}>
                     {u.status === 'ACTIVE' ? 'פעיל' : 'מושהה'}
                   </span>
                   <div className="text-zinc-600 text-xs mt-1">{fmtDate(u.created_at)}</div>

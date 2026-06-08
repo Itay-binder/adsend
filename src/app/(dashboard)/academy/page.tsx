@@ -10,7 +10,7 @@ const guides = [
   },
   {
     icon: '💬',
-    color: 'bg-brand/20 text-brand',
+    color: 'bg-emerald-500/20 text-emerald-400',
     title: 'פקודות הבוט',
     desc: 'כל מה שהבוט מבין — דוגמאות להודעות',
   },
@@ -72,7 +72,7 @@ export default function AcademyPage() {
             '"העלה כ-ACTIVE לקמפיין prospecting"',
             '"כן" / "לא" — לאישור / ביטול',
           ].map(ex => (
-            <div key={ex} className="bg-zinc-900/50 rounded-lg px-3 py-2 font-mono text-xs text-brand/90">
+            <div key={ex} className="bg-zinc-900/50 rounded-lg px-3 py-2 font-mono text-xs text-emerald-300">
               {ex}
             </div>
           ))}
@@ -108,7 +108,7 @@ export default function AcademyPage() {
         <a
           href="https://wa.me/972526660006?text=היי%2C%20אני%20צריך%20עזרה%20עם%20Adigo"
           target="_blank"
-          className="flex items-center gap-2 bg-brand hover:bg-[#00B8AF] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
         >
           <Phone className="w-4 h-4" /> דבר איתנו
         </a>

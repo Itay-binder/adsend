@@ -6,7 +6,7 @@ import { MessageCircle, Facebook, Search, ExternalLink } from 'lucide-react'
 import type { Customer } from '@/lib/customers'
 
 const SUB_LABELS: Record<string, { label: string; cls: string }> = {
-  active:    { label: 'פעיל',    cls: 'bg-brand/15 text-brand' },
+  active:    { label: 'פעיל',    cls: 'bg-emerald-500/15 text-emerald-400' },
   trial:     { label: 'ניסיון',  cls: 'bg-blue-500/15 text-blue-400' },
   cancelled: { label: 'בוטל',   cls: 'bg-amber-500/15 text-amber-400' },
   expired:   { label: 'פג תוקף', cls: 'bg-red-500/15 text-red-400' },
@@ -70,7 +70,7 @@ export function CustomersTable({ customers }: { customers: Customer[] }) {
                   <td className="p-3">
                     {c.waPhone ? (
                       <div className="flex items-center gap-1.5">
-                        <MessageCircle className={`w-3.5 h-3.5 ${c.waStatus === 'connected' ? 'text-brand' : 'text-zinc-500'}`} />
+                        <MessageCircle className={`w-3.5 h-3.5 ${c.waStatus === 'connected' ? 'text-emerald-400' : 'text-zinc-500'}`} />
                         <span className="font-mono text-xs">+{c.waPhone}</span>
                       </div>
                     ) : <span className="text-zinc-600">—</span>}
@@ -101,7 +101,7 @@ export function CustomersTable({ customers }: { customers: Customer[] }) {
                   <td className="p-3">
                     <Link
                       href={`/customers/${c.id}`}
-                      className="inline-flex items-center gap-1 text-brand hover:text-brand/90 text-xs font-medium"
+                      className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 text-xs font-medium"
                     >
                       פתח <ExternalLink className="w-3 h-3" />
                     </Link>
