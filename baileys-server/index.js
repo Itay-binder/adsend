@@ -81,31 +81,55 @@ async function resizeVideoIfNarrow(buffer, userId) {
   try {
     await writeFile(inPath, buffer)
 
-    // Probe width
+    // Probe width + height + rotation. WhatsApp/Meta render the post-rotation
+    // dimensions, so we resize when EITHER dimension is below 500px.
     const { stdout } = await execFileP('ffprobe', [
       '-v', 'error', '-select_streams', 'v:0',
-      '-show_entries', 'stream=width',
-      '-of', 'csv=p=0', inPath,
+      '-show_entries', 'stream=width,height',
+      '-show_entries', 'stream_side_data=rotation',
+      '-of', 'json', inPath,
     ])
-    const width = parseInt(stdout.trim(), 10)
-    if (!width || width >= 500) {
-      dlog(`[${userId}] video width=${width || 'unknown'} — no resize needed`)
+    let width = 0, height = 0, rotation = 0
+    try {
+      const info = JSON.parse(stdout)
+      const s = info?.streams?.[0]
+      width = parseInt(s?.width, 10) || 0
+      height = parseInt(s?.height, 10) || 0
+      rotation = parseInt(s?.side_data_list?.[0]?.rotation, 10) || 0
+    } catch {}
+
+    // After rotation, width and height may swap
+    let dispW = width, dispH = height
+    if (rotation === 90 || rotation === -90 || rotation === 270) {
+      dispW = height; dispH = width
+    }
+
+    dlog(`[${userId}] video probe raw=${width}x${height} rot=${rotation} display=${dispW}x${dispH}`)
+
+    if (dispW >= 500) {
+      dlog(`[${userId}] video display width ${dispW}px ≥ 500 — no resize`)
       return buffer
     }
 
-    // Scale to 1080 wide, keep aspect ratio, ensure even dimensions (h264 requires it)
+    // Scale so DISPLAYED width is 1080 (post-rotation). For portrait videos
+    // ffmpeg's scale operates on RAW pixels, so when rotated we set height=1080.
+    const isRotated = (rotation === 90 || rotation === -90 || rotation === 270)
+    const vf = isRotated
+      ? 'scale=trunc(oh/a/2)*2:1080'   // rotated: raw height becomes display width
+      : 'scale=1080:trunc(ow/a/2)*2'
+
     await execFileP('ffmpeg', [
       '-y', '-i', inPath,
-      '-vf', 'scale=1080:trunc(ow/a/2)*2',
+      '-vf', vf,
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
       '-c:a', 'copy', '-movflags', '+faststart',
       outPath,
     ])
     const resized = await readFile(outPath)
-    dlog(`[${userId}] video resized from ${width}px to 1080px (${buffer.byteLength}B → ${resized.byteLength}B)`)
+    dlog(`[${userId}] video resized display ${dispW}px → 1080px (${buffer.byteLength}B → ${resized.byteLength}B)`)
     return resized
   } catch (e) {
-    dlog(`[${userId}] video resize failed (${e.message}) — using original`)
+    dlog(`[${userId}] video resize FAILED (${e.message}) — using original`)
     return buffer
   } finally {
     unlink(inPath).catch(() => {})
@@ -301,9 +325,12 @@ async function handleIncoming(userId, sock, msg) {
       if (mediaType === 'image') {
         try {
           const meta = await sharp(buffer).metadata()
+          dlog(`[${userId}] image probe ${meta.width}x${meta.height}`)
           if (meta.width && meta.width < 500) {
             processedBuffer = await sharp(buffer).resize(1080, null, { fit: 'inside', withoutEnlargement: false }).toBuffer()
-            dlog(`[${userId}] image resized from ${meta.width}px to 1080px`)
+            dlog(`[${userId}] image resized ${meta.width}px → 1080px`)
+          } else {
+            dlog(`[${userId}] image width ${meta.width}px ≥ 500 — no resize`)
           }
         } catch (e) {
           dlog(`[${userId}] image resize failed: ${e.message}`)
