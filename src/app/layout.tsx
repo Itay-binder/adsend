@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import { Toaster } from '@/components/ui/sonner'
 import { MetaPixel } from '@/components/meta-pixel'
+import { GoogleTagManager, GoogleTagManagerNoScript } from '@/components/google-tag-manager'
 import './globals.css'
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
@@ -14,7 +15,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${geist.variable} h-full antialiased`}>
+      <head>
+        <GoogleTagManager />
+      </head>
       <body className="min-h-full flex flex-col">
+        <GoogleTagManagerNoScript />
         <MetaPixel />
         {children}
         <Toaster position="top-center" richColors />

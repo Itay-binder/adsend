@@ -72,20 +72,32 @@ function logToDb(name: string, params?: Record<string, unknown>) {
   }).catch(() => { /* fire and forget */ })
 }
 
+// Mirror the event to GTM dataLayer in parallel with the Meta pixel call.
+function pushDataLayer(name: string, params?: Record<string, unknown>) {
+  if (typeof window === 'undefined') return
+  ;(window as unknown as { dataLayer?: Record<string, unknown>[] }).dataLayer ??= []
+  ;(window as unknown as { dataLayer: Record<string, unknown>[] }).dataLayer.push({
+    event: name,
+    ...(params ?? {}),
+  })
+}
+
 // Helper to fire standard Meta events (PageView, Subscribe, InitiateCheckout, …)
-// Also logs to the events table for our own analytics.
+// Also logs to the events table and pushes to GTM dataLayer.
 export function trackEvent(name: string, params?: Record<string, unknown>) {
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     window.fbq('track', name, params ?? {})
   }
+  pushDataLayer(name, params)
   logToDb(name, params)
 }
 
 // Helper to fire custom events (login, welcome, dashboard, whatsapp_connection, …)
-// Also logs to the events table for our own analytics.
+// Also logs to the events table and pushes to GTM dataLayer.
 export function trackCustom(name: string, params?: Record<string, unknown>) {
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     window.fbq('trackCustom', name, params ?? {})
   }
+  pushDataLayer(name, params)
   logToDb(name, params)
 }
