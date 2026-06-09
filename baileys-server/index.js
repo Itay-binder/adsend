@@ -232,6 +232,17 @@ async function startSession(userId) {
     }
     for (const msg of messages) {
       if (msg.key.fromMe) { dlog(`[${userId}] skip: fromMe msgId=${msg.key.id}`); continue }
+      // Skip groups, broadcasts, channels, statuses, and newsletters — the bot
+      // is for 1:1 chats only. A media message in a WhatsApp group must NOT
+      // trigger the upload flow or the bot will reply into the group.
+      const remoteJid = msg.key.remoteJid ?? ''
+      if (remoteJid.endsWith('@g.us')
+          || remoteJid.endsWith('@broadcast')
+          || remoteJid.endsWith('@newsletter')
+          || remoteJid === 'status@broadcast') {
+        dlog(`[${userId}] skip: non-1:1 chat ${remoteJid}`)
+        continue
+      }
       if (isDuplicate(msg.key.id)) { dlog(`[${userId}] skip: dedup msgId=${msg.key.id}`); continue }
       await handleIncoming(userId, sock, msg)
     }
