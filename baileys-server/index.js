@@ -478,8 +478,29 @@ async function restoreActiveSessions() {
   }
 }
 
+// Hit the Vercel-hosted cart abandonment endpoint every 5 minutes. Lives here
+// because Vercel Hobby only allows daily crons — Railway runs 24/7 so this is
+// the cheapest place to keep the 5-min cadence.
+const APP_BASE_URL = process.env.APP_BASE_URL ?? 'https://adsend.vercel.app'
+const CRON_SECRET = process.env.CRON_SECRET
+async function tickCartAbandonment() {
+  if (!CRON_SECRET) return
+  try {
+    const res = await fetch(`${APP_BASE_URL}/api/cron/cart-abandonment`, {
+      headers: { Authorization: `Bearer ${CRON_SECRET}` },
+    })
+    const j = await res.json().catch(() => ({}))
+    if (j?.alerted > 0) dlog(`cart-abandonment: alerted ${j.alerted}/${j.scanned}`)
+  } catch (e) {
+    dlog(`cart-abandonment tick failed: ${e.message}`)
+  }
+}
+setInterval(tickCartAbandonment, 5 * 60_000)
+
 const PORT = process.env.PORT ?? 3001
 app.listen(PORT, async () => {
   console.log(`Baileys server running on :${PORT}`)
   await restoreActiveSessions()
+  // Fire one tick at startup so we don't wait 5 min for the first check.
+  tickCartAbandonment()
 })
