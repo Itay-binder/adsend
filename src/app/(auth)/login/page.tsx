@@ -9,20 +9,24 @@ import { trackCustom } from '@/components/meta-pixel'
 import { FadeIn } from '@/components/landing/fade-in'
 import {
   ArrowLeft,
+  Car,
   Check,
   ChevronDown,
   Clock,
+  Coffee,
   CreditCard,
   Download,
   Globe,
   Layers,
   Lock,
   MessageCircle,
+  Mic2,
   Sparkles,
   Tag,
   Volume2,
   VolumeX,
   Wand2,
+  Waves,
 } from 'lucide-react'
 
 export default function LoginPage() {
@@ -142,7 +146,11 @@ export default function LoginPage() {
             יכול להיות שאתה אסטרטג על וסופר מקצוען, ואפילו חופר ללקוח שלך על כמה חשוב לייצר עוד תכנים.
           </p>
           <p className="text-2xl font-black text-white">
-            אבל ברגע האמת שהקריאייטיבים הגיעו, אין לך כוח.
+            אבל ברגע האמת שהקריאייטיבים הגיעו,{' '}
+            <span className="underline decoration-red-500 decoration-[4px] underline-offset-[6px]">
+              אין לך כוח
+            </span>
+            .
           </p>
         </FadeIn>
 
@@ -251,6 +259,45 @@ export default function LoginPage() {
         <FadeIn delay={300} className="flex justify-center mt-14">
           <GoogleButton size="lg" loading={loading} onClick={signIn} />
         </FadeIn>
+      </section>
+
+      {/* SCENES — where users uploaded from */}
+      <section className="px-6 py-20 max-w-4xl mx-auto">
+        <FadeIn>
+          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center leading-tight">
+            השבוע. בעצמי. העלתי מודעות מ־
+          </h2>
+          <p className="text-zinc-400 text-center mb-12 text-lg">
+            כל מקום הוא Ads Manager עכשיו.
+          </p>
+        </FadeIn>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <FadeIn delay={0}>
+            <SceneCard
+              icon={Mic2}
+              text="באמצע הוובינר של לקוח. צילמתי קליפ, שלחתי, נכנס לקמפיין הליווי תוך דקה."
+            />
+          </FadeIn>
+          <FadeIn delay={120}>
+            <SceneCard
+              icon={Coffee}
+              text="בתור לקפה. הלקוח שלח סרטון חדש בווצאפ. עד שהקפה הגיע, המודעה הייתה באוויר."
+            />
+          </FadeIn>
+          <FadeIn delay={240}>
+            <SceneCard
+              icon={Car}
+              text="בדרך לחניון, סטורי של הלקוח עף לי בפיד. הורדתי, העברתי לעובד החדש, באוויר לפני שיצאתי."
+            />
+          </FadeIn>
+          <FadeIn delay={360}>
+            <SceneCard
+              icon={Waves}
+              text="בים, על שמשייה. הלקוח שלח סרטונים מצילום של היום, לחוץ שזה יעלה. השארתי את הרגליים בחול."
+            />
+          </FadeIn>
+        </div>
       </section>
 
       {/* ROI / PRICING */}
@@ -541,6 +588,26 @@ function DemoVideo() {
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+function SceneCard({
+  icon: Icon,
+  text,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  text: string
+}) {
+  return (
+    <div
+      dir="rtl"
+      className="flex items-start gap-4 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 hover:border-emerald-500/30 transition-colors h-full"
+    >
+      <div className="shrink-0 w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
+        <Icon className="w-5 h-5 text-sky-400" />
+      </div>
+      <p className="text-zinc-200 leading-relaxed">{text}</p>
     </div>
   )
 }
