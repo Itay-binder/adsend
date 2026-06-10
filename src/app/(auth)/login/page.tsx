@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -20,6 +20,8 @@ import {
   MessageCircle,
   Sparkles,
   Tag,
+  Volume2,
+  VolumeX,
   Wand2,
 } from 'lucide-react'
 
@@ -112,22 +114,11 @@ export default function LoginPage() {
       <section className="px-6 py-20 max-w-4xl mx-auto">
         <FadeIn>
           <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center">ככה זה נראה בפועל</h2>
-          <p className="text-zinc-400 text-center mb-12 text-lg">שולח לקמפיינר שלך. אומר לאיזה קמפיין. סיימת.</p>
+          <p className="text-zinc-400 text-center mb-12 text-lg">שולח ווצאפ לעובד החדש שלך. אומר לאיזה קמפיין. סיימת.</p>
         </FadeIn>
 
         <FadeIn delay={150}>
-          <div className="flex justify-center">
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              poster="/adigo-icon.png"
-              className="w-[90%] md:w-auto md:h-[60vh] rounded-3xl border border-zinc-800 shadow-2xl shadow-emerald-500/10 block bg-zinc-900"
-            >
-              <source src="/adigo-demo.mp4" type="video/mp4" />
-            </video>
-          </div>
+          <DemoVideo />
         </FadeIn>
       </section>
 
@@ -241,13 +232,13 @@ export default function LoginPage() {
 
         <div className="grid md:grid-cols-3 gap-5" dir="rtl">
           <FadeIn delay={0}>
-            <StepCard number={1} title="חבר WhatsApp" desc="כמו WhatsApp Web, 30 שניות" />
+            <StepCard number={1} title="חבר ווצאפ" desc="כמו ווצאפ ווב, 30 שניות" />
           </FadeIn>
           <FadeIn delay={120}>
             <StepCard number={2} title="חבר חשבון מודעות" desc="קליק אחד וזה מחובר" />
           </FadeIn>
           <FadeIn delay={240}>
-            <StepCard number={3} title="שלח לקמפיינר שלך" desc="תמונה או סרטון, הוא יודע מה לעשות" />
+            <StepCard number={3} title="שלח ווצאפ לעובד החדש שלך" desc="תמונה או סרטון, הוא יודע מה לעשות" />
           </FadeIn>
         </div>
 
@@ -312,7 +303,7 @@ export default function LoginPage() {
             <p className="text-zinc-400 mb-2">קודם אנחנו רוצים שתרגיש כמה זה משמעותי בשבילך.</p>
             <p className="text-2xl font-black mb-8">7 ימי ניסיון. בחינם לגמרי.</p>
             <GoogleButton size="lg" loading={loading} onClick={signIn} label="אני רוצה לנסות" />
-            <p className="text-xs text-zinc-500 mt-3" dir="rtl">ביטול בכל עת, בלי קנס</p>
+            <p className="text-xs text-zinc-500 mt-3" dir="rtl">ביטול בכל עת, בלחיצת כפתור</p>
           </div>
         </FadeIn>
       </section>
@@ -347,7 +338,7 @@ export default function LoginPage() {
           <FadeIn delay={160}>
             <FaqItem question="מה קורה אחרי 7 הימים?">
               <p>
-                אם לא ביטלת, המנוי הופך אוטומטית ל-99₪ לחודש. אפשר לבטל בכל רגע בלי קנס.
+                אם לא ביטלת, המנוי הופך אוטומטית ל-99₪ לחודש. אפשר לבטל בכל רגע בלחיצת כפתור.
               </p>
             </FaqItem>
           </FadeIn>
@@ -478,12 +469,72 @@ function SolutionRow({ text }: { text: string }) {
 
 function StepCard({ number, title, desc }: { number: number; title: string; desc: string }) {
   return (
-    <div className="bg-gradient-to-br from-zinc-900 to-zinc-900/50 border border-zinc-800 rounded-3xl p-7 text-center hover:border-emerald-500/40 transition-colors h-full">
+    <div dir="rtl" className="bg-gradient-to-br from-zinc-900 to-zinc-900/50 border border-zinc-800 rounded-3xl p-7 text-center hover:border-emerald-500/40 transition-colors h-full">
       <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mx-auto mb-5 text-emerald-400 font-black text-2xl">
         {number}
       </div>
-      <h3 className="font-bold text-lg mb-2">{title}</h3>
-      <p className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
+      <h3 dir="rtl" className="font-bold text-lg mb-2">{title}</h3>
+      <p dir="rtl" className="text-sm text-zinc-400 leading-relaxed">{desc}</p>
+    </div>
+  )
+}
+
+function DemoVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [muted, setMuted] = useState(true)
+  const [progress, setProgress] = useState(0)
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const onTime = () => {
+      if (v.duration > 0) setProgress((v.currentTime / v.duration) * 100)
+    }
+    v.addEventListener('timeupdate', onTime)
+    return () => v.removeEventListener('timeupdate', onTime)
+  }, [])
+
+  function toggleMute() {
+    const v = videoRef.current
+    if (!v) return
+    const next = !v.muted
+    v.muted = next
+    setMuted(next)
+    if (v.paused) v.play().catch(() => {})
+  }
+
+  return (
+    <div className="flex justify-center">
+      <div className="relative">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster="/adigo-icon.png"
+          className="w-[90vw] md:w-auto md:h-[60vh] rounded-3xl border border-zinc-800 shadow-2xl shadow-emerald-500/10 block bg-zinc-900"
+        >
+          <source src="/adigo-demo.mp4" type="video/mp4" />
+        </video>
+
+        <button
+          type="button"
+          onClick={toggleMute}
+          aria-label={muted ? 'הפעל קול' : 'השתק'}
+          className="absolute top-4 left-4 flex items-center gap-2 bg-black/65 hover:bg-black/85 backdrop-blur-md border border-white/15 rounded-full px-4 py-2 text-white text-sm font-bold shadow-lg transition-colors"
+        >
+          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          <span>{muted ? 'הפעל קול' : 'השתק'}</span>
+        </button>
+
+        <div className="absolute bottom-3 left-4 right-4 h-1 bg-white/15 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-l from-emerald-400 to-sky-400"
+            style={{ width: `${progress}%`, transition: 'width 200ms linear' }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
