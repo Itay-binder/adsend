@@ -261,11 +261,11 @@ export default function LoginPage() {
         </FadeIn>
       </section>
 
-      {/* SCENES — where users uploaded from */}
+      {/* SCENES — where campaigners uploaded from */}
       <section className="px-6 py-20 max-w-4xl mx-auto">
         <FadeIn>
           <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center leading-tight">
-            השבוע. בעצמי. העלתי מודעות מ־
+            השבוע. קמפיינרים. העלו מודעות מ־
           </h2>
           <p className="text-zinc-400 text-center mb-12 text-lg">
             כל מקום הוא Ads Manager עכשיו.
@@ -276,25 +276,29 @@ export default function LoginPage() {
           <FadeIn delay={0}>
             <SceneCard
               icon={Mic2}
-              text="באמצע הוובינר של לקוח. צילמתי קליפ, שלחתי, נכנס לקמפיין הליווי תוך דקה."
+              title="באמצע וובינר ללקוחות"
+              text="צילמו סרטון מהמסך, שלחו לעובד החדש — בקמפיין הליווי תוך דקה."
             />
           </FadeIn>
           <FadeIn delay={120}>
             <SceneCard
               icon={Coffee}
-              text="בתור לקפה. הלקוח שלח סרטון חדש בווצאפ. עד שהקפה הגיע, המודעה הייתה באוויר."
+              title="בתור לקפה"
+              text="סרטון חדש הגיע מהלקוח בווצאפ. עד שהקפה הגיע, המודעה הייתה באוויר."
             />
           </FadeIn>
           <FadeIn delay={240}>
             <SceneCard
               icon={Car}
-              text="בדרך לחניון, סטורי של הלקוח עף לי בפיד. הורדתי, העברתי לעובד החדש, באוויר לפני שיצאתי."
+              title="בדרך לחניון"
+              text="סטורי של לקוח עף בפיד. הורידו, העבירו לעובד החדש — באוויר לפני שיצאו."
             />
           </FadeIn>
           <FadeIn delay={360}>
             <SceneCard
               icon={Waves}
-              text="בים, על שמשייה. הלקוח שלח סרטונים מצילום של היום, לחוץ שזה יעלה. השארתי את הרגליים בחול."
+              title="בים, על שמשייה"
+              text="הלקוח שלח סרטונים מצילום של היום, לחוץ שיעלו. הרגליים נשארו בחול."
             />
           </FadeIn>
         </div>
@@ -594,9 +598,11 @@ function DemoVideo() {
 
 function SceneCard({
   icon: Icon,
+  title,
   text,
 }: {
   icon: React.ComponentType<{ className?: string }>
+  title: string
   text: string
 }) {
   return (
@@ -607,7 +613,10 @@ function SceneCard({
       <div className="shrink-0 w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
         <Icon className="w-5 h-5 text-sky-400" />
       </div>
-      <p className="text-zinc-200 leading-relaxed">{text}</p>
+      <div>
+        <p className="text-white font-bold mb-1">{title}</p>
+        <p className="text-zinc-300 leading-relaxed">{text}</p>
+      </div>
     </div>
   )
 }
