@@ -61,13 +61,12 @@ export default function LoginPage() {
         </FadeIn>
 
         <FadeIn delay={100}>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-center leading-[1.1] mb-8">
-            הפוך את העובדה
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-center leading-[1.15] mb-8">
+            הקריאייטיב הוא המלך.
             <br />
-            שאתה צוואר הבקבוק
-            <br />
+            אבל אתה?{' '}
             <span className="bg-gradient-to-l from-emerald-400 to-sky-400 bg-clip-text text-transparent">
-              לבעיה של אתמול.
+              צוואר הבקבוק שלו.
             </span>
           </h1>
         </FadeIn>
@@ -76,7 +75,7 @@ export default function LoginPage() {
           <p className="text-lg md:text-2xl text-zinc-300 text-center max-w-2xl mx-auto mb-12 leading-relaxed">
             תתחיל להעלות מודעות לממומן מהווצאפ.
             <br />
-            <span className="text-white font-bold">30 שניות במקום שעה.</span>
+            <span className="text-white font-bold">תוך 30 שניות. מכל מקום. בלי לפתוח מנהל מודעות.</span>
           </p>
         </FadeIn>
 
@@ -98,10 +97,6 @@ export default function LoginPage() {
         <section className="bg-zinc-900/40 border-y border-zinc-800 py-5">
           <div className="max-w-4xl mx-auto px-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-zinc-400">
             <span className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              תשלום מאובטח דרך Cardcom
-            </span>
-            <span className="flex items-center gap-2">
               <Lock className="w-4 h-4" />
               SSL מוצפן
             </span>
@@ -121,8 +116,15 @@ export default function LoginPage() {
         </FadeIn>
 
         <FadeIn delay={150}>
-          <div className="relative rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl shadow-emerald-500/10">
-            <video autoPlay muted loop playsInline className="w-full block" poster="/adigo-icon.png">
+          <div className="flex justify-center">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              poster="/adigo-icon.png"
+              className="w-[90%] md:w-auto md:h-[60vh] rounded-3xl border border-zinc-800 shadow-2xl shadow-emerald-500/10 block bg-zinc-900"
+            >
               <source src="/adigo-demo.mp4" type="video/mp4" />
             </video>
           </div>
