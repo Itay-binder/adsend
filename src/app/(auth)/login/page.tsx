@@ -147,7 +147,7 @@ export default function LoginPage() {
           </p>
           <p className="text-2xl font-black text-white">
             אבל ברגע האמת שהקריאייטיבים הגיעו,{' '}
-            <span className="underline decoration-red-500 decoration-[4px] underline-offset-[6px]">
+            <span className="underline decoration-red-500 decoration-[5px] underline-offset-[2px]">
               אין לך כוח
             </span>
             .
