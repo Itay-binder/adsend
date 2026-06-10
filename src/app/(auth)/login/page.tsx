@@ -113,8 +113,14 @@ export default function LoginPage() {
       {/* DEMO VIDEO */}
       <section className="px-6 py-20 max-w-4xl mx-auto">
         <FadeIn>
-          <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center">ככה זה נראה בפועל</h2>
-          <p className="text-zinc-400 text-center mb-12 text-lg">שולח ווצאפ לעובד החדש שלך. אומר לאיזה קמפיין. סיימת.</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-center">ככה זה נראה בפועל</h2>
+          <p className="text-zinc-300 text-center mb-2 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+            שלחת סרטון או תמונה לווצאפ של <span className="text-white font-bold">״העובד החדש שלך״</span>.
+          </p>
+          <p className="text-zinc-300 text-center mb-12 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+            אמרת לו לאיזה קמפיין וסדרת מודעות להעלות. זהו.{' '}
+            <span className="text-emerald-400 font-bold">זה באוויר.</span>
+          </p>
         </FadeIn>
 
         <FadeIn delay={150}>
