@@ -81,7 +81,7 @@ export default function LoginPage() {
 
         <FadeIn delay={400} className="flex flex-col items-center gap-3 mb-10">
           <GoogleButton size="lg" loading={loading} onClick={signIn} />
-          <p className="text-xs text-zinc-500">המשך עם Google · 2 דקות להתחיל</p>
+          <p className="text-xs text-zinc-500" dir="rtl">לוקח לך 2 דקות להתחיל</p>
         </FadeIn>
 
         <FadeIn delay={500} className="flex justify-center">
@@ -312,7 +312,7 @@ export default function LoginPage() {
             <p className="text-zinc-400 mb-2">קודם אנחנו רוצים שתרגיש כמה זה משמעותי בשבילך.</p>
             <p className="text-2xl font-black mb-8">7 ימי ניסיון. בחינם לגמרי.</p>
             <GoogleButton size="lg" loading={loading} onClick={signIn} label="אני רוצה לנסות" />
-            <p className="text-xs text-zinc-500 mt-3">המשך עם Google · ביטול בכל עת</p>
+            <p className="text-xs text-zinc-500 mt-3" dir="rtl">ביטול בכל עת, בלי קנס</p>
           </div>
         </FadeIn>
       </section>
@@ -370,7 +370,7 @@ export default function LoginPage() {
 
         <FadeIn delay={150} className="flex flex-col items-center gap-3 mt-12">
           <GoogleButton size="lg" loading={loading} onClick={signIn} label="כן, בוא נתחיל" />
-          <p className="text-xs text-zinc-500">המשך עם Google · 7 ימי ניסיון בחינם</p>
+          <p className="text-xs text-zinc-500" dir="rtl">7 ימי ניסיון בחינם, בלי התחייבות</p>
         </FadeIn>
       </section>
 
