@@ -117,7 +117,7 @@ export default function LoginPage() {
       <section className="px-6 py-20 max-w-4xl mx-auto">
         <FadeIn>
           <h2 className="text-3xl md:text-4xl font-bold mb-3 text-center">ככה זה נראה בפועל</h2>
-          <p className="text-zinc-400 text-center mb-12 text-lg">שולח לבוט. אומר לאיזה קמפיין. סיימת.</p>
+          <p className="text-zinc-400 text-center mb-12 text-lg">שולח לקמפיינר שלך. אומר לאיזה קמפיין. סיימת.</p>
         </FadeIn>
 
         <FadeIn delay={150}>
@@ -237,7 +237,7 @@ export default function LoginPage() {
           <p className="text-zinc-400 text-center mb-14 text-lg">3 צעדים. 90 שניות.</p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-5">
+        <div className="grid md:grid-cols-3 gap-5" dir="rtl">
           <FadeIn delay={0}>
             <StepCard number={1} title="חבר WhatsApp" desc="כמו WhatsApp Web, 30 שניות" />
           </FadeIn>
@@ -245,7 +245,7 @@ export default function LoginPage() {
             <StepCard number={2} title="חבר חשבון מודעות" desc="קליק אחד וזה מחובר" />
           </FadeIn>
           <FadeIn delay={240}>
-            <StepCard number={3} title="שלח לבוט" desc="תמונה או סרטון, הוא יודע מה לעשות" />
+            <StepCard number={3} title="שלח לקמפיינר שלך" desc="תמונה או סרטון, הוא יודע מה לעשות" />
           </FadeIn>
         </div>
 
