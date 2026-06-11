@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { trackEvent, trackCustom } from '@/components/meta-pixel'
 
 export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
+  const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -17,15 +18,31 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
       value: hasUsedTrial ? 99 : 0,
       currency: 'ILS',
     })
-    // Custom 'welcome' event for the trial offer screen
     if (!hasUsedTrial) trackCustom('welcome')
   }, [hasUsedTrial])
 
-  async function handleSubscribe() {
+  async function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault()
     setLoading(true)
     setError(null)
 
-    // Custom 'checkout' event the moment they actually leave to Cardcom
+    // First-time signup: save the phone before anything else. Renewals already
+    // have a phone on file (or don't need a fresh one), so skip the save step.
+    if (!hasUsedTrial) {
+      const phoneRes = await fetch('/api/save-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      })
+      const phoneJson = await phoneRes.json().catch(() => ({}))
+      if (!phoneRes.ok) {
+        setError(phoneJson.error ?? 'שגיאה בשמירת הטלפון')
+        setLoading(false)
+        return
+      }
+    }
+
+    // 'checkout' = the moment they actually leave for Cardcom (post-phone).
     trackCustom('checkout', {
       content_name: hasUsedTrial ? 'Adigo Renewal' : 'Adigo Trial',
       value: hasUsedTrial ? 99 : 0,
@@ -34,15 +51,12 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
 
     const trialUrl = process.env.NEXT_PUBLIC_CARDCOM_TRIAL_URL
     const renewalUrl = process.env.NEXT_PUBLIC_CARDCOM_RENEWAL_URL
-
-    // Returning customer → renewal page (₪99). First-time → trial page (₪0).
     const target = hasUsedTrial ? renewalUrl : trialUrl
     if (target) {
       window.location.href = target
       return
     }
 
-    // Fallback: dynamic LowProfile (only if env vars aren't configured)
     try {
       const res = await fetch('/api/cardcom/create-payment', { method: 'POST' })
       const data = await res.json()
@@ -51,9 +65,8 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
         setLoading(false)
         return
       }
-      if (data.url) {
-        window.location.href = data.url
-      } else {
+      if (data.url) window.location.href = data.url
+      else {
         setError('לא התקבל קישור תשלום')
         setLoading(false)
       }
@@ -127,13 +140,37 @@ export function SubscribeClient({ hasUsedTrial }: { hasUsedTrial: boolean }) {
             </div>
           )}
 
-          <button
-            onClick={handleSubscribe}
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 text-white font-bold text-base transition-colors"
-          >
-            {loading ? 'מעביר לתשלום...' : hasUsedTrial ? 'לתשלום מאובטח' : 'התחל ניסיון חינם'}
-          </button>
+          <form onSubmit={handleSubscribe} className="space-y-3">
+            {!hasUsedTrial && (
+              <div>
+                <label htmlFor="phone" className="block text-sm font-bold text-zinc-300 mb-1.5" dir="rtl">
+                  טלפון לוואטסאפ
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="050-1234567"
+                  dir="ltr"
+                  className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-center font-bold text-base placeholder:text-zinc-600 focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+                <p className="text-xs text-zinc-500 mt-1.5" dir="rtl">
+                  כדי שנוכל לעזור לך אם תתקע
+                </p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || (!hasUsedTrial && phone.replace(/\D/g, '').length < 9)}
+              className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-bold text-base transition-colors"
+            >
+              {loading ? 'מעביר לתשלום...' : hasUsedTrial ? 'לתשלום מאובטח' : 'התחל ניסיון חינם'}
+            </button>
+          </form>
 
           <p className="text-center text-zinc-600 text-xs mt-4">
             {hasUsedTrial
