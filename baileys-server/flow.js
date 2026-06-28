@@ -4,6 +4,7 @@ import {
   uploadImageCreative, uploadVideoCreative,
   buildAndCreateAd, activateAd,
 } from './meta-api.js'
+import { isBudgetTrigger, isBudgetStep, handleBudgetFlow } from './adigobudget.js'
 
 function buildCampaignMenu(campaigns) {
   return campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`).join('\n')
@@ -119,6 +120,12 @@ export async function handleFlow({ supabase, send, body }) {
   if (pending && (t === 'ביטול' || t.toLowerCase() === 'cancel')) {
     await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
     await send(from, '↩️ בוטל.')
+    return
+  }
+
+  // ── BUDGET SKILL (adigobudget): trigger "/תקציב" or continue a budget flow ────
+  if (isBudgetTrigger(t) || isBudgetStep(pending?.step)) {
+    await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t, pending })
     return
   }
 

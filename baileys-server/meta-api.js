@@ -219,3 +219,51 @@ export async function uploadVideoCreative(adAccountId, videoBuffer, accessToken)
   if (!res.ok || !data.id) throw new Error(data.error?.error_user_msg ?? data.error?.message ?? `Meta error ${res.status}`)
   return data.id
 }
+
+// ── BUDGET (adigobudget skill) ────────────────────────────────────────────────
+// Meta returns/expects budgets in the account currency's minor unit (agorot/cents).
+
+export async function getAccountCurrency(adAccountId, accessToken) {
+  const accountId = normalizeAdAccountId(adAccountId)
+  const res = await fetch(`${META_API}/${accountId}?fields=currency&access_token=${accessToken}`)
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  return data.currency ?? ''
+}
+
+// Active campaigns including budget fields. A campaign with daily_budget or
+// lifetime_budget set is CBO (campaign-level budget); otherwise it's ABO.
+export async function getActiveCampaignsWithBudget(adAccountId, accessToken) {
+  const accountId = normalizeAdAccountId(adAccountId)
+  const filtering = encodeURIComponent(JSON.stringify([{ field: 'effective_status', operator: 'IN', value: ['ACTIVE'] }]))
+  const res = await fetch(
+    `${META_API}/${accountId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget&filtering=${filtering}&limit=50&access_token=${accessToken}`
+  )
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  const campaigns = data.data ?? []
+  return campaigns.filter(c => {
+    const n = c.name.toLowerCase()
+    return !n.startsWith('instagram post') && !n.startsWith('facebook post') && c.objective !== 'POST_ENGAGEMENT'
+  })
+}
+
+// Ad sets including budget fields (for ABO campaigns).
+export async function getAdSetsWithBudget(campaignId, accessToken) {
+  const res = await fetch(
+    `${META_API}/${campaignId}/adsets?fields=id,name,status,daily_budget,lifetime_budget&limit=50&access_token=${accessToken}`
+  )
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  const sets = data.data ?? []
+  return sets.sort((a, b) => (b.status === 'ACTIVE' ? 1 : 0) - (a.status === 'ACTIVE' ? 1 : 0))
+}
+
+// field is 'daily_budget' or 'lifetime_budget'; minor is the amount in minor units.
+export async function updateCampaignBudget(campaignId, field, minor, accessToken) {
+  await metaPost(`/${campaignId}`, { [field]: minor, access_token: accessToken })
+}
+
+export async function updateAdSetBudget(adSetId, field, minor, accessToken) {
+  await metaPost(`/${adSetId}`, { [field]: minor, access_token: accessToken })
+}
