@@ -267,3 +267,29 @@ export async function updateCampaignBudget(campaignId, field, minor, accessToken
 export async function updateAdSetBudget(adSetId, field, minor, accessToken) {
   await metaPost(`/${adSetId}`, { [field]: minor, access_token: accessToken })
 }
+
+// ── INSIGHTS (adigoperf skill) ────────────────────────────────────────────────
+// Insights `spend` is returned in MAIN currency units (e.g. "123.45"), NOT minor.
+
+const INSIGHT_FIELDS = 'spend,actions,objective,reach,impressions'
+
+// One campaign's insight row for a date preset (or null if no delivery).
+export async function getCampaignInsights(campaignId, datePreset, accessToken) {
+  const res = await fetch(
+    `${META_API}/${campaignId}/insights?fields=${INSIGHT_FIELDS}&date_preset=${datePreset}&access_token=${accessToken}`
+  )
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  return data.data?.[0] ?? null
+}
+
+// All campaigns' insight rows (level=campaign) for a date preset.
+export async function getAllCampaignInsights(adAccountId, datePreset, accessToken) {
+  const accountId = normalizeAdAccountId(adAccountId)
+  const res = await fetch(
+    `${META_API}/${accountId}/insights?level=campaign&fields=campaign_id,campaign_name,${INSIGHT_FIELDS}&date_preset=${datePreset}&limit=200&access_token=${accessToken}`
+  )
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  return data.data ?? []
+}

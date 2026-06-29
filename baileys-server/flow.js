@@ -5,6 +5,7 @@ import {
   buildAndCreateAd, activateAd,
 } from './meta-api.js'
 import { isBudgetTrigger, isBudgetStep, handleBudgetFlow } from './adigobudget.js'
+import { isPerfTrigger, isPerfStep, handlePerfFlow } from './adigoperf.js'
 
 function buildCampaignMenu(campaigns) {
   return campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`).join('\n')
@@ -126,6 +127,12 @@ export async function handleFlow({ supabase, send, body }) {
   // ── BUDGET SKILL (adigobudget): trigger "/תקציב" or continue a budget flow ────
   if (isBudgetTrigger(t) || isBudgetStep(pending?.step)) {
     await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t, pending })
+    return
+  }
+
+  // ── PERFORMANCE SKILL (adigoperf): trigger "/ביצועים" or continue the flow ────
+  if (isPerfTrigger(t) || isPerfStep(pending?.step)) {
+    await handlePerfFlow({ supabase, send, from, userId, token, adAccount, t, pending })
     return
   }
 
