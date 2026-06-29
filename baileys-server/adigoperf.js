@@ -94,34 +94,42 @@ function campaignBlock(name, spend, result, currency) {
   return `*שם קמפיין:* ${name}\n*תקציב שיצא:* ${fmtSpend(spend, currency)}\n*תוצאות:* ${result.count.toLocaleString('en-US')} ${result.label}`
 }
 
+// Start the performance flow from scratch (the "/ביצועים" trigger, or after the
+// agency account-selection gate picked an account). Stores the chosen ad account
+// on the pending row so the timeframe step queries the right account.
+export async function startPerfFlow({ supabase, send, from, userId, token, adAccount }) {
+  let campaigns, currency
+  try {
+    ;[campaigns, currency] = await Promise.all([
+      getActiveCampaigns(adAccount.account_id, token),
+      getAccountCurrency(adAccount.account_id, token),
+    ])
+  } catch (e) {
+    await send(from, `❌ שגיאה בטעינת קמפיינים: ${e.message.slice(0, 80)}`)
+    return
+  }
+  if (!campaigns.length) {
+    await send(from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
+    return
+  }
+
+  const lines = campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`)
+  lines.push(`${campaigns.length + 1}. 📊 כל הקמפיינים`)
+
+  await supabase.from('whatsapp_pending').upsert({
+    user_id: userId, step: 'perf_await_campaign',
+    campaigns: JSON.stringify(campaigns), cta: currency, intent: 'perf',
+    account_id: adAccount.account_id,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+
+  await send(from, `📊 ביצועים\n\nביצועים של איזה קמפיין?\n\n${lines.join('\n')}\n\nשלח מספר או "ביטול"`)
+}
+
 export async function handlePerfFlow({ supabase, send, from, userId, token, adAccount, t, pending }) {
   // ── START: "/ביצועים" ────────────────────────────────────────────────────────
   if (isPerfTrigger(t)) {
-    let campaigns, currency
-    try {
-      ;[campaigns, currency] = await Promise.all([
-        getActiveCampaigns(adAccount.account_id, token),
-        getAccountCurrency(adAccount.account_id, token),
-      ])
-    } catch (e) {
-      await send(from, `❌ שגיאה בטעינת קמפיינים: ${e.message.slice(0, 80)}`)
-      return
-    }
-    if (!campaigns.length) {
-      await send(from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
-      return
-    }
-
-    const lines = campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`)
-    lines.push(`${campaigns.length + 1}. 📊 כל הקמפיינים`)
-
-    await supabase.from('whatsapp_pending').upsert({
-      user_id: userId, step: 'perf_await_campaign',
-      campaigns: JSON.stringify(campaigns), cta: currency, intent: 'perf',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-
-    await send(from, `📊 ביצועים\n\nביצועים של איזה קמפיין?\n\n${lines.join('\n')}\n\nשלח מספר או "ביטול"`)
+    await startPerfFlow({ supabase, send, from, userId, token, adAccount })
     return
   }
 

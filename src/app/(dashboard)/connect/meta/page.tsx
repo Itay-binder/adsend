@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, RefreshCw } from 'lucide-react'
+import { CheckCircle, RefreshCw, Check } from 'lucide-react'
 import { trackCustom } from '@/components/meta-pixel'
 
 interface AdAccount {
@@ -35,11 +35,15 @@ export default function ConnectMetaPage() {
   }, [justConnected])
 
   const [connected, setConnected] = useState(false)
-  const [selectedAccount, setSelectedAccount] = useState<AdAccount | null>(null)
+  const [connectedAccounts, setConnectedAccounts] = useState<AdAccount[]>([])
   const [availableAccounts, setAvailableAccounts] = useState<AdAccount[]>([])
+  const [tier, setTier] = useState<'basic' | 'agency'>('basic')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isAgency = tier === 'agency'
 
   useEffect(() => {
     if (isChoosing) {
@@ -48,9 +52,10 @@ export default function ConnectMetaPage() {
         .then(r => r.json())
         .then(async d => {
           if (!d.accounts) { setError(d.error ?? 'שגיאה בטעינת חשבונות'); setLoading(false); return }
+          setTier(d.tier === 'agency' ? 'agency' : 'basic')
           if (d.accounts.length === 1) {
-            // Auto-select if only one account
-            await selectAccount(d.accounts[0])
+            // Auto-select if only one account (same for basic and agency)
+            await saveAccounts([d.accounts[0]])
           } else {
             setAvailableAccounts(d.accounts)
             setLoading(false)
@@ -61,8 +66,10 @@ export default function ConnectMetaPage() {
       fetch('/api/meta/accounts')
         .then(r => r.json())
         .then(d => {
-          if (d.accounts?.length) {
-            setSelectedAccount(d.accounts[0])
+          setTier(d.tier === 'agency' ? 'agency' : 'basic')
+          const active = (d.accounts ?? []).filter((a: AdAccount) => a.is_active)
+          if (active.length) {
+            setConnectedAccounts(active)
             setConnected(true)
           }
           setLoading(false)
@@ -71,21 +78,24 @@ export default function ConnectMetaPage() {
     }
   }, [isChoosing])
 
-  async function selectAccount(acc: AdAccount) {
+  // Save one or more accounts. Basic keeps a single account; agency may keep many.
+  async function saveAccounts(accs: AdAccount[]) {
     setSaving(true)
     setError(null)
     const res = await fetch('/api/meta/accounts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        account_id: acc.account_id,
-        account_name: acc.account_name,
-        currency: acc.currency,
+        accounts: accs.map(a => ({
+          account_id: a.account_id,
+          account_name: a.account_name,
+          currency: a.currency,
+        })),
       }),
     })
     setSaving(false)
     if (res.ok) {
-      setSelectedAccount(acc)
+      setConnectedAccounts(accs)
       setConnected(true)
       setAvailableAccounts([])
       router.replace('/connect/meta')
@@ -94,6 +104,21 @@ export default function ConnectMetaPage() {
       setError(d.error ?? 'שגיאה בשמירה')
       setLoading(false)
     }
+  }
+
+  function toggleSelect(accId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(accId)) next.delete(accId)
+      else next.add(accId)
+      return next
+    })
+  }
+
+  function saveSelected() {
+    const chosen = availableAccounts.filter(a => selectedIds.has(a.account_id!))
+    if (!chosen.length) { setError('בחר לפחות חשבון אחד'); return }
+    saveAccounts(chosen)
   }
 
   function connectMeta() {
@@ -112,8 +137,14 @@ export default function ConnectMetaPage() {
   // Account picker after OAuth
   if (isChoosing) return (
     <div className="p-8 max-w-lg">
-      <h2 className="text-2xl font-bold text-white mb-2">בחר חשבון מודעות</h2>
-      <p className="text-zinc-400 mb-8">בחר את החשבון שממנו תעלה קריאייטיבים</p>
+      <h2 className="text-2xl font-bold text-white mb-2">
+        {isAgency ? 'בחר חשבונות מודעות' : 'בחר חשבון מודעות'}
+      </h2>
+      <p className="text-zinc-400 mb-8">
+        {isAgency
+          ? 'סמן את כל החשבונות שתרצה לנהל. בווצאפ תתבקש לבחור חשבון לפני כל פעולה.'
+          : 'בחר את החשבון שממנו תעלה קריאייטיבים'}
+      </p>
 
       {error && (
         <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -125,12 +156,42 @@ export default function ConnectMetaPage() {
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl p-6 text-center text-zinc-400">
           לא נמצאו חשבונות מודעות פעילים בחשבון זה
         </div>
+      ) : isAgency ? (
+        <>
+          <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl overflow-hidden">
+            {availableAccounts.map(acc => {
+              const checked = selectedIds.has(acc.account_id!)
+              return (
+                <button
+                  key={acc.account_id}
+                  onClick={() => toggleSelect(acc.account_id!)}
+                  className="w-full px-4 py-4 flex items-center justify-between border-b border-zinc-800 last:border-0 hover:bg-zinc-700/50 transition-colors text-right"
+                >
+                  <div className="text-right">
+                    <p className="text-white text-sm font-medium">{acc.account_name}</p>
+                    <p className="text-zinc-500 text-xs font-mono mt-0.5">{acc.account_id} · {acc.currency}</p>
+                  </div>
+                  <span className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ml-2 transition-colors ${checked ? 'bg-blue-600 border-blue-600' : 'border-zinc-600'}`}>
+                    {checked && <Check className="w-3.5 h-3.5 text-white" />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+          <Button
+            onClick={saveSelected}
+            disabled={selectedIds.size === 0}
+            className="mt-6 bg-[#1877f2] hover:bg-[#166fe5] text-white font-semibold px-8 h-11"
+          >
+            שמור {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+          </Button>
+        </>
       ) : (
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl overflow-hidden">
           {availableAccounts.map(acc => (
             <button
               key={acc.account_id}
-              onClick={() => selectAccount(acc)}
+              onClick={() => saveAccounts([acc])}
               disabled={saving}
               className="w-full px-4 py-4 flex items-center justify-between border-b border-zinc-800 last:border-0 hover:bg-zinc-700/50 transition-colors text-right disabled:opacity-50"
             >
@@ -146,27 +207,34 @@ export default function ConnectMetaPage() {
     </div>
   )
 
-  // Already connected — show selected account
-  if (connected && selectedAccount) return (
+  // Already connected — show selected account(s)
+  if (connected && connectedAccounts.length) return (
     <div className="p-8 max-w-lg">
       <h2 className="text-2xl font-bold text-white mb-2">חיבור Meta Ads</h2>
-      <p className="text-zinc-400 mb-8">חשבון המודעות המחובר</p>
+      <p className="text-zinc-400 mb-8">
+        {isAgency && connectedAccounts.length > 1 ? 'חשבונות המודעות המחוברים' : 'חשבון המודעות המחובר'}
+      </p>
 
       <div className="flex items-center gap-2 mb-5">
         <CheckCircle className="w-5 h-5 text-emerald-400" />
         <span className="text-emerald-400 font-medium">Meta מחובר</span>
+        {isAgency && <Badge className="bg-blue-500/20 text-blue-400">סוכנות</Badge>}
       </div>
 
-      <div className="bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-4 flex items-center justify-between mb-4">
-        <div>
-          <p className="text-white text-sm font-medium">{selectedAccount.account_name}</p>
-          <p className="text-zinc-500 text-xs font-mono mt-0.5">{selectedAccount.account_id} · {selectedAccount.currency}</p>
-        </div>
-        <Badge className="bg-emerald-500/20 text-emerald-400">פעיל</Badge>
+      <div className="space-y-3 mb-4">
+        {connectedAccounts.map(acc => (
+          <div key={acc.account_id} className="bg-zinc-800/50 border border-zinc-700 rounded-xl px-4 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-white text-sm font-medium">{acc.account_name}</p>
+              <p className="text-zinc-500 text-xs font-mono mt-0.5">{acc.account_id} · {acc.currency}</p>
+            </div>
+            <Badge className="bg-emerald-500/20 text-emerald-400">פעיל</Badge>
+          </div>
+        ))}
       </div>
 
       <Button onClick={connectMeta} variant="outline" className="gap-2 border-zinc-700 text-zinc-300 hover:text-white">
-        <RefreshCw className="w-4 h-4" /> החלף חשבון
+        <RefreshCw className="w-4 h-4" /> {isAgency ? 'עדכן חשבונות' : 'החלף חשבון'}
       </Button>
     </div>
   )

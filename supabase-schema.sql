@@ -68,6 +68,7 @@ create table if not exists public.whatsapp_pending (
   status text default 'PAUSED',
   campaigns text,
   adsets text,
+  account_id text,
   updated_at timestamptz default now()
 );
 
@@ -75,6 +76,7 @@ create table if not exists public.subscriptions (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade unique,
   status text default 'trial' check (status in ('trial','active','expired','cancelled')),
+  tier text not null default 'basic' check (tier in ('basic','agency')),
   plan text default 'monthly',
   amount integer default 99,
   currency text default 'ILS',

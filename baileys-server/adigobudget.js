@@ -67,39 +67,47 @@ function budgetLabel(field) {
  * @param {string} ctx.t             trimmed incoming text
  * @param {object|null} ctx.pending  current whatsapp_pending row
  */
+// Start the budget flow from scratch (the "/תקציב" trigger, or after the agency
+// account-selection gate picked an account). Lists active campaigns and stores
+// the chosen ad account on the pending row so later steps stay on it.
+export async function startBudgetFlow({ supabase, send, from, userId, token, adAccount }) {
+  let campaigns, currency
+  try {
+    ;[campaigns, currency] = await Promise.all([
+      getActiveCampaignsWithBudget(adAccount.account_id, token),
+      getAccountCurrency(adAccount.account_id, token),
+    ])
+  } catch (e) {
+    await send(from, `❌ שגיאה בטעינת קמפיינים: ${e.message.slice(0, 80)}`)
+    return
+  }
+  if (!campaigns.length) {
+    await send(from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
+    return
+  }
+
+  const lines = campaigns.map((c, i) => {
+    const { field, minor } = budgetInfo(c)
+    const tag = field
+      ? `${budgetLabel(field)}: ${fmtMoney(minor, currency)}`
+      : 'תקציב לפי סדרת מודעות'
+    return `${i + 1}. 🟢 ${c.name} (${tag})`
+  })
+
+  await supabase.from('whatsapp_pending').upsert({
+    user_id: userId, step: 'budget_await_campaign',
+    campaigns: JSON.stringify(campaigns), cta: currency, intent: 'budget',
+    account_id: adAccount.account_id,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+
+  await send(from, `💰 עדכון תקציב\n\nבחר קמפיין:\n\n${lines.join('\n')}\n\nשלח מספר או "ביטול"`)
+}
+
 export async function handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t, pending }) {
   // ── START: "/תקציב" ─────────────────────────────────────────────────────────
   if (isBudgetTrigger(t)) {
-    let campaigns, currency
-    try {
-      ;[campaigns, currency] = await Promise.all([
-        getActiveCampaignsWithBudget(adAccount.account_id, token),
-        getAccountCurrency(adAccount.account_id, token),
-      ])
-    } catch (e) {
-      await send(from, `❌ שגיאה בטעינת קמפיינים: ${e.message.slice(0, 80)}`)
-      return
-    }
-    if (!campaigns.length) {
-      await send(from, '❌ לא נמצאו קמפיינים פעילים בחשבון.')
-      return
-    }
-
-    const lines = campaigns.map((c, i) => {
-      const { field, minor } = budgetInfo(c)
-      const tag = field
-        ? `${budgetLabel(field)}: ${fmtMoney(minor, currency)}`
-        : 'תקציב לפי סדרת מודעות'
-      return `${i + 1}. 🟢 ${c.name} (${tag})`
-    })
-
-    await supabase.from('whatsapp_pending').upsert({
-      user_id: userId, step: 'budget_await_campaign',
-      campaigns: JSON.stringify(campaigns), cta: currency, intent: 'budget',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-
-    await send(from, `💰 עדכון תקציב\n\nבחר קמפיין:\n\n${lines.join('\n')}\n\nשלח מספר או "ביטול"`)
+    await startBudgetFlow({ supabase, send, from, userId, token, adAccount })
     return
   }
 
