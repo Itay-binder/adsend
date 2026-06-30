@@ -254,19 +254,30 @@ async function startSession(userId) {
       dlog(`[${userId}] skip: type=${type} (not notify)`)
       return
     }
-    // Own JID = the phone number of the connected WhatsApp account. We allow
-    // fromMe messages ONLY when remoteJid matches it — that's the WhatsApp
-    // "Message Yourself" flow, which is how users naturally hand a creative
-    // to the bot. fromMe messages to OTHER chats are still skipped (we don't
-    // want the bot replying to messages the user sent to a friend).
+    // Allow fromMe messages ONLY when remoteJid matches the connected account
+    // itself — that's WhatsApp's "Message Yourself" flow, which is how users
+    // naturally hand a creative to the bot. fromMe messages to OTHER chats
+    // are still skipped (no loops, no friend-spam). Modern WhatsApp uses LID
+    // for self-chats ("115427950739472@lid"), so we compare BOTH the phone
+    // JID and the LID against remoteJid, ignoring any ":device" suffix.
     const ownPhone = sock.user?.id?.split(':')[0] ?? ''
     const ownJid = ownPhone ? `${ownPhone}@s.whatsapp.net` : ''
+    const ownLidBase = (sock.user?.lid ?? '').split(':')[0].split('@')[0]
     for (const msg of messages) {
       const remoteJid = msg.key.remoteJid ?? ''
-      const isSelfChat = ownJid && remoteJid === ownJid
+      const remoteJidBase = remoteJid.split(':')[0]
+      const remoteLidNum = remoteJid.endsWith('@lid') ? remoteJid.split('@')[0].split(':')[0] : ''
+      const senderPnPhone = (msg.key.senderPn ?? msg.key.participantPn ?? '').split('@')[0].split(':')[0]
+      const isSelfChat =
+        (ownJid && remoteJidBase === ownJid) ||
+        (ownLidBase && remoteLidNum === ownLidBase) ||
+        (ownPhone && senderPnPhone === ownPhone)
       if (msg.key.fromMe && !isSelfChat) {
-        dlog(`[${userId}] skip: fromMe to ${remoteJid} (not self-chat)`)
+        dlog(`[${userId}] skip: fromMe to ${remoteJid} sp=${msg.key.senderPn ?? '-'} ownLid=${ownLidBase || '-'} (not self-chat)`)
         continue
+      }
+      if (msg.key.fromMe && isSelfChat) {
+        dlog(`[${userId}] self-chat detected: remote=${remoteJid} sp=${msg.key.senderPn ?? '-'}`)
       }
       // Skip groups, broadcasts, channels, statuses, and newsletters — the bot
       // is for 1:1 chats only. A media message in a WhatsApp group must NOT
