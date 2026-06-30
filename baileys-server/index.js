@@ -174,6 +174,21 @@ async function startSession(userId) {
             user_id: userId, name: 'whatsapp_reconnected', params: { phone },
           })
         } catch {}
+        // Seed the allowed-numbers list with the owner's own number on first
+        // connect — only when the list is empty — so the customer sees a number
+        // to build on. The owner is always allowed in code regardless (default-deny).
+        if (phone) {
+          try {
+            const { data: existingNums } = await supabase
+              .from('whatsapp_allowed_numbers')
+              .select('id').eq('user_id', userId).limit(1)
+            if (!existingNums || existingNums.length === 0) {
+              await supabase.from('whatsapp_allowed_numbers').insert({
+                user_id: userId, phone_number: phone, label: 'המספר שלי',
+              })
+            }
+          } catch {}
+        }
       }
       dlog(`[${userId}] CONNECTED as ${phone}`)
     }
@@ -387,7 +402,7 @@ async function handleIncoming(userId, sock, msg) {
     dlog(`[${userId}] FLOW start messageType=${mediaType ?? 'text'} textLen=${(text ?? '').length}`)
     await handleFlow({
       supabase, send,
-      body: { userId, from: identityJid, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
+      body: { userId, from: identityJid, ownPhone: sessions.get(userId)?.phone ?? null, messageType: mediaType ?? 'text', text, mediaBuffer, mediaType },
     })
     dlog(`[${userId}] FLOW end`)
   } catch (err) {

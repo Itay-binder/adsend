@@ -85,6 +85,16 @@ function normPhone(s) {
   return (s ?? '').split(':')[0].split('@')[0].replace(/\D/g, '').replace(/^0+/, '')
 }
 
+// Canonical phone for whitelist comparison: the last 9 digits (the national
+// significant number for IL mobile, e.g. 5XXXXXXXX). This tolerates country-code
+// and leading-zero format differences (972526..., 0526..., 526...) while still
+// requiring an EXACT match on the meaningful digits — no short-suffix collisions
+// (a junk entry shorter than 7 digits is rejected by the caller).
+function canonPhone(s) {
+  const n = normPhone(s)
+  return n.length >= 9 ? n.slice(-9) : n
+}
+
 /**
  * Main flow handler — replaces the old POST /api/whatsapp/webhook route.
  * Runs in-process on the Baileys server, called directly from handleIncoming.
@@ -95,7 +105,7 @@ function normPhone(s) {
  * @param {object} ctx.body — { userId, from, messageType, text, mediaBuffer, mediaType }
  */
 export async function handleFlow({ supabase, send, body }) {
-  const { userId, from, messageType, text, mediaBuffer, mediaType } = body
+  const { userId, from, ownPhone, messageType, text, mediaBuffer, mediaType } = body
 
   // Parallel: fetch everything we'll need up front
   const [
@@ -112,13 +122,19 @@ export async function handleFlow({ supabase, send, body }) {
     supabase.from('whatsapp_pending').select('*').eq('user_id', userId).maybeSingle(),
   ])
 
-  // ── WHITELIST ──────────────────────────────────────────────────────────────
-  if (allowedNumbers && allowedNumbers.length > 0) {
-    const fromNorm = normPhone(from)
-    const isAllowed = allowedNumbers.some(n => {
-      const stored = normPhone(n.phone_number)
-      return fromNorm.endsWith(stored) || stored.endsWith(fromNorm)
-    })
+  // ── WHITELIST (default-deny) ────────────────────────────────────────────────
+  // The connected account's OWN number is always allowed (so the owner is never
+  // locked out, even with an empty list). Any other sender must EXACTLY match a
+  // number on the allowed list. Empty list → only the owner can drive the bot.
+  // NOTE: exact match — not endsWith — to prevent suffix-collision bypass.
+  {
+    const fromC = canonPhone(from)
+    const ownC = canonPhone(ownPhone)
+    const allowed = (allowedNumbers ?? [])
+      .map(n => canonPhone(n.phone_number))
+      .filter(p => p.length >= 7)
+    const isOwner = ownC.length >= 7 && fromC === ownC
+    const isAllowed = fromC.length >= 7 && (isOwner || allowed.includes(fromC))
     if (!isAllowed) return
   }
 
