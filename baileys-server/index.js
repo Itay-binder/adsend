@@ -31,6 +31,23 @@ const execFileP = promisify(execFile)
 const app = express()
 app.use(express.json({ limit: '50mb' }))
 
+// ── AUTH: shared secret ──────────────────────────────────────────────────────
+// Every control endpoint requires the x-api-secret header that only the AdSend
+// app knows. /health stays open for Railway's platform health checks.
+// Fail-closed: if the secret isn't configured, reject everything (except health).
+const API_SECRET = process.env.BAILEYS_API_SECRET
+app.use((req, res, next) => {
+  if (req.path === '/health') return next()
+  if (!API_SECRET) {
+    console.error('SECURITY: BAILEYS_API_SECRET not set — refusing request')
+    return res.status(503).json({ error: 'server misconfigured' })
+  }
+  if (req.get('x-api-secret') !== API_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+  next()
+})
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const SESSIONS_DIR = './sessions'
 const logger = pino({ level: 'warn' })
