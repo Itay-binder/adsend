@@ -17,7 +17,7 @@ export default async function DashboardPage() {
     supabase.from('whatsapp_sessions').select('*').eq('user_id', user.id).single(),
     supabase.from('meta_connections').select('*').eq('user_id', user.id).single(),
     supabase.from('uploads').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-    fetch(`${BAILEYS}/session/${user.id}/status`).then(r => r.json()).catch(() => null),
+    fetch(`${BAILEYS}/session/${user.id}/status`, { headers: { 'x-api-secret': process.env.BAILEYS_API_SECRET ?? '' } }).then(r => r.json()).catch(() => null),
   ])
 
   const waConnected = baileysStatus?.status === 'connected' || waSession.data?.status === 'connected'
