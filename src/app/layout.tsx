@@ -13,13 +13,13 @@ const assistant = Assistant({
 })
 
 export const metadata: Metadata = {
-  title: 'Adigo — העלה קריאייטיבים למטא דרך ווצאפ',
-  description: '30 שניות והקריאייטיבים שלך באוויר. שולחים תמונה לבוט בווצאפ, עולה ישר ל-Meta Ads',
+  title: 'Adigo — Upload Meta Ads creatives from WhatsApp',
+  description: 'Push image and video creatives to Meta Ads Manager in 30 seconds — straight from a WhatsApp message.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" dir="rtl" className={`${assistant.variable} h-full antialiased`}>
+    <html lang="en" dir="ltr" className={`${assistant.variable} h-full antialiased`}>
       <head>
         <GoogleTagManager />
       </head>
