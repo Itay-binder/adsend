@@ -1,15 +1,21 @@
 'use client'
 
-import { useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 export type Locale = 'en' | 'he'
 
-// URL param 'lang' wins; anything other than 'he' is treated as English.
+// Read the ?lang=he URL param client-side (post-mount) to avoid
+// useSearchParams()'s Suspense requirement during SSR. Server render
+// always emits the English default; if the URL says otherwise we flip
+// on hydration.
 export function useLocale(): Locale {
-  const params = useSearchParams()
-  const raw = params.get('lang')
-  return raw === 'he' ? 'he' : 'en'
+  const [locale, setLocale] = useState<Locale>('en')
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = new URLSearchParams(window.location.search).get('lang')
+    if (raw === 'he') setLocale('he')
+  }, [])
+  return locale
 }
 
 // Sync <html lang/dir> to the active locale so global styles (font, alignment)
