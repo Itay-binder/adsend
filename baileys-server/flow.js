@@ -307,12 +307,12 @@ export async function handleFlow({ supabase, send, body }) {
     const queued = pending.intent
     if (queued === 'budget') {
       await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-      await startBudgetFlow({ supabase, send, from, userId, token, adAccount: chosen })
+      await startBudgetFlow({ supabase, send, from, userId, token, adAccount: chosen, locale })
       return
     }
     if (queued === 'perf') {
       await supabase.from('whatsapp_pending').delete().eq('user_id', userId)
-      await startPerfFlow({ supabase, send, from, userId, token, adAccount: chosen })
+      await startPerfFlow({ supabase, send, from, userId, token, adAccount: chosen, locale })
       return
     }
     await startUploadFlow({
@@ -336,22 +336,22 @@ export async function handleFlow({ supabase, send, body }) {
   // ── BUDGET SKILL ─────────────────────────────────────────────────────────────
   if (isBudgetTrigger(msg)) {
     if (needAccountChoice) { await askForAccount('budget'); return }
-    await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending })
+    await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending, locale })
     return
   }
   if (isBudgetStep(pending?.step)) {
-    await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending })
+    await handleBudgetFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending, locale })
     return
   }
 
   // ── PERFORMANCE SKILL ────────────────────────────────────────────────────────
   if (isPerfTrigger(msg)) {
     if (needAccountChoice) { await askForAccount('perf'); return }
-    await handlePerfFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending })
+    await handlePerfFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending, locale })
     return
   }
   if (isPerfStep(pending?.step)) {
-    await handlePerfFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending })
+    await handlePerfFlow({ supabase, send, from, userId, token, adAccount, t: msg, pending, locale })
     return
   }
 
