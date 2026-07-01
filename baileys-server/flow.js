@@ -254,7 +254,7 @@ export async function handleFlow({ supabase, send, body }) {
     return
   }
   if (isAdminStep(pending?.step)) {
-    await handleAdminFlow({ supabase, send, from, userId, token, t })
+    await handleAdminFlow({ supabase, send, from, userId, token, t, pending })
     return
   }
 
