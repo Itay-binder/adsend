@@ -6,6 +6,7 @@ import {
 } from './meta-api.js'
 import { isBudgetTrigger, isBudgetStep, handleBudgetFlow, startBudgetFlow } from './adigobudget.js'
 import { isPerfTrigger, isPerfStep, handlePerfFlow, startPerfFlow } from './adigoperf.js'
+import { isAdminTrigger, isAdminStep, handleAdminFlow, startAdminFlow } from './adigoadmin.js'
 
 function buildCampaignMenu(campaigns) {
   return campaigns.map((c, i) => `${i + 1}. 🟢 ${c.name}`).join('\n')
@@ -242,6 +243,18 @@ export async function handleFlow({ supabase, send, body }) {
       mediaBuffer: pending.media_base64, mediaType: pending.media_type,
       caption: pending.primary_text ?? '',
     })
+    return
+  }
+
+  // ── ADMIN SHORTCUT (Itay only): "/אדמין" → 3-way menu that pipes into a
+  // pinned "all campaigns today" perf report for Adigo/Lior/Power. The trigger
+  // check itself gates on user_id, so non-admins never see this branch.
+  if (isAdminTrigger(userId, t)) {
+    await startAdminFlow({ supabase, send, from, userId })
+    return
+  }
+  if (isAdminStep(pending?.step)) {
+    await handleAdminFlow({ supabase, send, from, userId, token, t })
     return
   }
 
