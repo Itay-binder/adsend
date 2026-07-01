@@ -41,12 +41,31 @@ const ADMIN_INTRO = `⚡ *מצב אדמין*
 2. ליאור היום
 3. פאוור היום
 
+*החלפת שפת פלואו קריאייטיבים:*
+4. English 🇺🇸  _(או שלח "english")_
+5. עברית 🇮🇱  _(או שלח "עברית")_
+
 או פשוט תשאל אותי כל דבר —
 _"מה השווה הכי טוב באדיגו השבוע?"_
 _"תסביר לי למה פאוור עוצרת"_
-_"תוציא לי סיכום של ליאור בחודש האחרון"_
 
 לצאת — "ביטול"`
+
+// Quick locale switches available inside admin mode. When Itay wants to test
+// the English upload flow (or flip back), he just types one of these words
+// (or the "4" / "5" menu shortcut) and the bot updates his user_metadata.locale
+// on the spot — no Supabase dashboard trip needed.
+const LOCALE_SWITCH_WORDS = {
+  he: ['5', 'עברית', 'hebrew', 'he', 'עב'],
+  en: ['4', 'אנגלית', 'english', 'en', 'אנג'],
+}
+
+function detectLocaleSwitch(cleanT) {
+  const t = cleanT.toLowerCase()
+  if (LOCALE_SWITCH_WORDS.en.some(w => t === w)) return 'en'
+  if (LOCALE_SWITCH_WORDS.he.some(w => t === w)) return 'he'
+  return null
+}
 
 const anthropicKey = process.env.ANTHROPIC_API_KEY
 const anthropic = anthropicKey && anthropicKey !== 'placeholder_add_your_key'
@@ -308,6 +327,23 @@ export async function handleAdminFlow({ supabase, send, from, userId, token, t, 
   }
 
   const history = safeParseHistory(pending?.campaigns)
+
+  // Quick locale switch (options 4/5, or "english" / "עברית" free text)
+  const switchTo = detectLocaleSwitch(cleanT)
+  if (switchTo) {
+    const { data: { user } } = await supabase.auth.admin.getUserById(userId)
+    await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: { ...user?.user_metadata, locale: switchTo },
+    })
+    const msg = switchTo === 'en'
+      ? '✅ העלאת קריאייטיבים תדבר איתך *באנגלית* מעכשיו.\nשלח תמונה/סרטון לבדיקה. לחזרה — "עברית".'
+      : '✅ העלאת קריאייטיבים תדבר איתך *בעברית* מעכשיו.\nשלח תמונה/סרטון לבדיקה. לחזרה — "english".'
+    history.push({ role: 'user', content: cleanT })
+    history.push({ role: 'assistant', content: `שיניתי את locale של איתי ל-${switchTo}.` })
+    await persistHistory(supabase, userId, history)
+    await send(from, msg)
+    return
+  }
 
   // Quick shortcut: 1/2/3 → account today (no Claude, no cost)
   const menuMatch = ADMIN_ACCOUNTS.find(a => a.menu === cleanT)
