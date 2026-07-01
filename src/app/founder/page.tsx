@@ -393,7 +393,7 @@ export default function FounderPage() {
 function LeadForm({
   t, dir, arrow: ArrowIcon,
 }: {
-  t: typeof T['en']
+  t: (typeof T)[keyof typeof T]
   dir: 'ltr' | 'rtl'
   arrow: React.ComponentType<{ className?: string }>
 }) {
