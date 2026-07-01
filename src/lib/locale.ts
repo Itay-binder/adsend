@@ -4,17 +4,29 @@ import { useEffect, useState } from 'react'
 
 export type Locale = 'en' | 'he'
 
-// Read the ?lang=he URL param client-side (post-mount) to avoid
-// useSearchParams()'s Suspense requirement during SSR. Server render
-// always emits the English default; if the URL says otherwise we flip
-// on hydration.
-export function useLocale(): Locale {
-  const [locale, setLocale] = useState<Locale>('en')
+// Locale resolution order, post-mount:
+//   1. Pathname override — /lp-en and /dashboard-en (and children) force English.
+//      /lp-he forces Hebrew. This lets the URL itself decide the language, so
+//      /lp-en shows English content without any query params.
+//   2. ?lang= query param — 'en' or 'he'.
+//   3. defaultLocale arg (Hebrew).
+export function useLocale(defaultLocale: Locale = 'he'): Locale {
+  const [locale, setLocale] = useState<Locale>(defaultLocale)
   useEffect(() => {
     if (typeof window === 'undefined') return
+    const p = window.location.pathname
+    // Any path ending in -en or nested under /dashboard-en → English
+    if (p === '/lp-en' || p === '/dashboard-en' || p.startsWith('/dashboard-en/')) {
+      setLocale('en')
+      return
+    }
+    if (p === '/lp-he') {
+      setLocale('he')
+      return
+    }
     const raw = new URLSearchParams(window.location.search).get('lang')
-    if (raw === 'he') setLocale('he')
-  }, [])
+    if (raw === 'en' || raw === 'he') setLocale(raw as Locale)
+  }, [defaultLocale])
   return locale
 }
 

@@ -259,7 +259,7 @@ export default function LoginPage() {
     setLoading('google')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback?locale=${locale}` },
     })
     if (error) {
       toast.error(t.signin_error)
